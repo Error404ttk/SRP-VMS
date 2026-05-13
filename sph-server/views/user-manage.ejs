@@ -1,0 +1,421 @@
+<section class="mx-auto max-w-7xl space-y-5">
+  <div class="flex flex-col justify-between gap-3 lg:flex-row lg:items-center">
+    <div>
+      <p class="text-sm font-semibold text-sky-600">จัดการผู้ใช้งาน</p>
+      <h2 class="mt-1 text-2xl font-bold text-slate-950">ข้อมูลผู้ใช้งานระบบ</h2>
+    </div>
+    <button type="button" onclick="openUserModal()" class="rounded-xl bg-sky-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-sky-700">เพิ่มผู้ใช้งาน</button>
+  </div>
+
+  <div class="page-card overflow-hidden">
+    <div id="userListInfo" class="border-b border-slate-100 px-4 py-3 text-sm text-slate-500">กำลังโหลดข้อมูลผู้ใช้งาน...</div>
+    <div class="overflow-x-auto">
+      <table class="min-w-full divide-y divide-slate-200">
+        <thead class="bg-slate-50">
+          <tr>
+            <th class="px-4 py-3 text-left text-xs font-bold uppercase text-slate-500">Username</th>
+            <th class="px-4 py-3 text-left text-xs font-bold uppercase text-slate-500">ชื่อ-สกุล</th>
+            <th class="px-4 py-3 text-left text-xs font-bold uppercase text-slate-500">สิทธิ์</th>
+            <th class="px-4 py-3 text-left text-xs font-bold uppercase text-slate-500">หน่วยงาน</th>
+            <th class="px-4 py-3 text-left text-xs font-bold uppercase text-slate-500 provider-col">Provider ID</th>
+            <th class="px-4 py-3 text-left text-xs font-bold uppercase text-slate-500 provider-col">HCODE</th>
+            <th class="px-4 py-3 text-left text-xs font-bold uppercase text-slate-500">สถานะ</th>
+            <th class="px-4 py-3 text-left text-xs font-bold uppercase text-slate-500">เข้าใช้ล่าสุด</th>
+            <th class="px-4 py-3 text-left text-xs font-bold uppercase text-slate-500">แก้ไขล่าสุด</th>
+            <th class="px-4 py-3 text-right text-xs font-bold uppercase text-slate-500">จัดการ</th>
+          </tr>
+        </thead>
+        <tbody id="userTableBody" class="divide-y divide-slate-100 bg-white"></tbody>
+      </table>
+    </div>
+    <div id="userListEmpty" class="hidden px-6 py-10 text-center text-slate-500">ไม่พบข้อมูลผู้ใช้งาน</div>
+  </div>
+</section>
+
+<div id="userModal" class="fixed inset-0 z-50 hidden overflow-y-auto bg-slate-950/50 p-4 justify-center items-start">
+  <div class="relative w-full max-w-3xl rounded-2xl bg-white shadow-2xl my-8">
+    <div class="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+      <h3 id="userModalTitle" class="text-lg font-bold text-slate-950">เพิ่มผู้ใช้งาน</h3>
+      <button type="button" onclick="closeUserModal()" class="rounded-lg px-3 py-1 text-xl text-slate-500 hover:bg-slate-100">&times;</button>
+    </div>
+    <form id="userForm" class="grid gap-4 p-5 sm:grid-cols-2">
+      <input type="hidden" id="user_id">
+      <label class="space-y-1">
+        <span class="text-sm font-semibold text-slate-700">Username</span>
+        <input id="username" type="text" class="user-input" autocomplete="off" placeholder="username" pattern="[a-zA-Z0-9]+" oninput="this.value = this.value.replace(/[^a-zA-Z0-9]/g, '')">
+      </label>
+      <label class="space-y-1">
+        <span id="passwordLabel" class="text-sm font-semibold text-slate-700">Password</span>
+        <input id="password" type="password" class="user-input" autocomplete="new-password" placeholder="อย่างน้อย 6 ตัวอักษร">
+      </label>
+      <label class="space-y-1">
+        <span class="text-sm font-semibold text-slate-700">ชื่อ-สกุล</span>
+        <input id="full_name" type="text" class="user-input" placeholder="ชื่อ-สกุล">
+      </label>
+      <label class="space-y-1">
+        <span class="text-sm font-semibold text-slate-700">หน่วยงาน</span>
+        <input id="department" type="text" class="user-input" placeholder="หน่วยงาน">
+      </label>
+      <label class="space-y-1">
+        <span class="text-sm font-semibold text-slate-700">สิทธิ์</span>
+        <select id="role" class="user-input">
+          <option value="user">ผู้ใช้งาน</option>
+          <option value="manager">หัวหน้าแผนก (Manager)</option>
+          <option value="driver_head">หัวหน้าพนักงานขับรถ (Driver Head)</option>
+          <option value="driver">พนักงานขับรถ (Driver)</option>
+          <option value="admin">ผู้ดูแลระบบ</option>
+        </select>
+      </label>
+      <label class="space-y-1">
+        <span class="text-sm font-semibold text-slate-700">สถานะ</span>
+        <select id="status" class="user-input">
+          <option value="active">active</option>
+          <option value="inactive">inactive</option>
+        </select>
+      </label>
+      <div id="pagePermissionsWrapper" class="sm:col-span-2 border-t border-slate-100 pt-4">
+        <h4 class="text-sm font-bold text-slate-900">สิทธิ์การเข้าใช้งานรายหน้าจอ (Page Permissions)</h4>
+        <p class="mt-1 text-xs text-slate-500">ติ๊กถูกหน้าจอที่ต้องการอนุญาตให้ผู้ใช้รายนี้เข้าถึงได้ (เฉพาะผู้ดูแลระบบ Admin เท่านั้นที่สามารถกำหนดส่วนนี้ได้ หากไม่ติ๊กเลยระบบจะใช้สิทธิ์เริ่มต้นตามบทบาทหลัก)</p>
+        <div id="pagePermissionsContainer" class="mt-3 grid grid-cols-2 gap-2 text-sm text-slate-700">
+          <label class="flex items-center gap-2 cursor-pointer py-1">
+            <input type="checkbox" name="allowed_page" value="dashboard" class="rounded border-slate-300 text-sky-600 focus:ring-sky-500">
+            <span>📊 Dashboard</span>
+          </label>
+          <label class="flex items-center gap-2 cursor-pointer py-1">
+            <input type="checkbox" name="allowed_page" value="usage-form" class="rounded border-slate-300 text-sky-600 focus:ring-sky-500">
+            <span>📝 ขอใช้รถ</span>
+          </label>
+          <label class="flex items-center gap-2 cursor-pointer py-1">
+            <input type="checkbox" name="allowed_page" value="usage-list" class="rounded border-slate-300 text-sky-600 focus:ring-sky-500">
+            <span>📋 รายการใช้รถ / ประวัติ</span>
+          </label>
+          <label class="flex items-center gap-2 cursor-pointer py-1">
+            <input type="checkbox" name="allowed_page" value="master-data" class="rounded border-slate-300 text-sky-600 focus:ring-sky-500">
+            <span>🗂️ จัดการข้อมูลหลัก (Master Data)</span>
+          </label>
+          <label class="flex items-center gap-2 cursor-pointer py-1">
+            <input type="checkbox" name="allowed_page" value="users" class="rounded border-slate-300 text-sky-600 focus:ring-sky-500">
+            <span>🔐 จัดการผู้ใช้งาน (Users)</span>
+          </label>
+          <label class="flex items-center gap-2 cursor-pointer py-1">
+            <input type="checkbox" name="allowed_page" value="reports" class="rounded border-slate-300 text-sky-600 focus:ring-sky-500">
+            <span>📈 รายงาน (Reports)</span>
+          </label>
+          <label class="flex items-center gap-2 cursor-pointer py-1 col-span-2">
+            <input type="checkbox" name="allowed_page" value="audit-logs" class="rounded border-slate-300 text-sky-600 focus:ring-sky-500">
+            <span>🧾 ประวัติระบบ (Audit Logs)</span>
+          </label>
+        </div>
+      </div>
+      <div id="providerConfigWrapper" class="grid gap-4 sm:grid-cols-2 sm:col-span-2 border-t border-slate-100 pt-4">
+        <div class="border-t border-slate-100 pt-4 sm:col-span-2">
+          <h4 class="text-sm font-bold text-slate-900">ข้อมูลสำหรับ Provider ID Login</h4>
+          <p class="mt-1 text-xs text-slate-500">ใช้ผูกบัญชีระบบกับ Provider ID โดยใช้ Account ID จาก Provider profile เป็น key หลักสำหรับ login</p>
+        </div>
+        <label class="space-y-1">
+          <span class="text-sm font-semibold text-slate-700">Account ID</span>
+          <input id="account_id" type="text" class="user-input" placeholder="account_id จาก Provider profile">
+        </label>
+        <label class="space-y-1">
+          <span class="text-sm font-semibold text-slate-700">Provider ID</span>
+          <input id="provider_id" type="text" class="user-input" placeholder="provider_id จาก Provider profile หรือเว้นว่าง">
+        </label>
+        <label class="space-y-1">
+          <span class="text-sm font-semibold text-slate-700">Hash CID</span>
+          <input id="hash_cid" type="text" class="user-input" placeholder="hash_cid จาก Provider profile ใช้ match เป็นหลัก">
+        </label>
+        <label class="space-y-1">
+          <span class="text-sm font-semibold text-slate-700">HCODE</span>
+          <input id="hcode" type="text" class="user-input" placeholder="รหัสหน่วยบริการ เช่น 11135">
+        </label>
+        <label class="space-y-1">
+          <span class="text-sm font-semibold text-slate-700">ชื่อจาก Provider ID</span>
+          <input id="provider_name" type="text" class="user-input" placeholder="ชื่อจาก Provider profile หรือเว้นว่าง">
+        </label>
+        <label class="space-y-1 sm:col-span-2">
+          <span class="text-sm font-semibold text-slate-700">Provider login ล่าสุด</span>
+          <input id="provider_last_login" type="text" class="user-input bg-slate-100 text-slate-500" disabled>
+        </label>
+      </div>
+      <div class="flex justify-end gap-3 border-t border-slate-100 pt-4 sm:col-span-2">
+        <button type="button" onclick="closeUserModal()" class="rounded-xl border border-slate-200 px-5 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">ยกเลิก</button>
+        <button type="submit" class="rounded-xl bg-sky-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-sky-700">บันทึก</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<style>
+  .user-input {
+    width: 100%;
+    border-radius: 0.75rem;
+    border: 1px solid rgb(226 232 240);
+    background: rgb(248 250 252);
+    padding: 0.7rem 0.9rem;
+    outline: none;
+  }
+
+  .user-input:focus {
+    border-color: rgb(56 189 248);
+    background: white;
+    box-shadow: 0 0 0 4px rgb(224 242 254);
+  }
+</style>
+
+<script>
+  let userManageInitialized = false;
+  let userRows = [];
+
+  document.addEventListener('sphAuthReady', initUserManagePage);
+  document.addEventListener('DOMContentLoaded', function () {
+    setTimeout(initUserManagePage, 300);
+    setTimeout(initUserManagePage, 1000);
+  });
+
+  function initUserManagePage() {
+    if (userManageInitialized || window.CURRENT_PAGE !== 'users') return;
+    const auth = window.SPH_AUTH_CONTEXT || {};
+    if (!getUserManageToken()) {
+      document.getElementById('userListInfo').textContent = 'Session หมดอายุ กรุณาเข้าสู่ระบบใหม่';
+      return;
+    }
+    if (!auth.user || (auth.user.role !== 'admin' && auth.user.role !== 'manager')) {
+      document.getElementById('userListInfo').textContent = 'คุณไม่มีสิทธิ์เข้าถึงเมนูนี้';
+      return;
+    }
+
+    if (auth.user.role === 'manager') {
+      document.querySelectorAll('.provider-col').forEach(function(el) {
+        el.style.display = 'none';
+      });
+      const adminOpt = document.querySelector('#role option[value="admin"]');
+      if (adminOpt) adminOpt.disabled = true;
+    }
+
+    userManageInitialized = true;
+    document.getElementById('userForm').addEventListener('submit', submitUserForm);
+    document.getElementById('userTableBody').addEventListener('click', function (event) {
+      const button = event.target.closest('[data-action="edit"]');
+      if (button) openUserModal(button.dataset.userId);
+    });
+    loadUsers();
+  }
+
+  function loadUsers() {
+    showLoading(true);
+    document.getElementById('userListInfo').textContent = 'กำลังโหลดข้อมูลผู้ใช้งาน...';
+    google.script.run
+      .withSuccessHandler(function (response) {
+        showLoading(false);
+        if (!response || !response.success) {
+          document.getElementById('userListInfo').textContent = response ? response.message : 'โหลดข้อมูลผู้ใช้งานไม่สำเร็จ';
+          showUserManageError(response ? response.message : 'โหลดข้อมูลผู้ใช้งานไม่สำเร็จ');
+          return;
+        }
+        userRows = response.data || [];
+        document.getElementById('userListInfo').textContent = 'พบผู้ใช้งาน ' + userRows.length + ' รายการ';
+        renderUserTable();
+      })
+      .withFailureHandler(function (error) {
+        showLoading(false);
+        document.getElementById('userListInfo').textContent = error.message || 'โหลดข้อมูลผู้ใช้งานไม่สำเร็จ';
+        showUserManageError(error.message || 'โหลดข้อมูลผู้ใช้งานไม่สำเร็จ');
+      })
+      .getUsers(getUserManageToken());
+  }
+
+  function renderUserTable() {
+    document.getElementById('userListEmpty').classList.toggle('hidden', userRows.length > 0);
+    document.getElementById('userTableBody').innerHTML = userRows.map(function (user) {
+      return '<tr class="hover:bg-slate-50">' +
+        '<td class="px-4 py-3 text-sm font-semibold text-slate-900">' + escapeUserHtml(user.username) + '</td>' +
+        '<td class="px-4 py-3 text-sm text-slate-700">' + escapeUserHtml(user.full_name) + '</td>' +
+        '<td class="px-4 py-3 text-sm">' + getUserRoleBadge(user.role) + '</td>' +
+        '<td class="px-4 py-3 text-sm text-slate-700">' + escapeUserHtml(user.department) + '</td>' +
+        '<td class="px-4 py-3 text-sm text-slate-700 provider-col">' + getProviderBindBadge(user) + '</td>' +
+        '<td class="px-4 py-3 text-sm text-slate-600 provider-col">' + escapeUserHtml(user.hcode || '-') + '</td>' +
+        '<td class="px-4 py-3 text-sm">' + getUserStatusBadge(user.status) + '</td>' +
+        '<td class="px-4 py-3 text-sm text-slate-600">' + escapeUserHtml(user.last_login || '-') + '</td>' +
+        '<td class="px-4 py-3 text-sm text-slate-600">' + escapeUserHtml(user.updated_at || '-') + '</td>' +
+        '<td class="px-4 py-3 text-right">' +
+          '<button type="button" data-action="edit" data-user-id="' + escapeUserHtml(user.user_id) + '" class="rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-700">แก้ไข</button>' +
+        '</td>' +
+      '</tr>';
+    }).join('');
+  }
+
+  function openUserModal(userId) {
+    const currentUser = window.SPH_AUTH_CONTEXT?.user || {};
+    const user = userId ? userRows.find(function (item) { return item.user_id === userId; }) : null;
+    
+    if (user && user.role === 'admin' && currentUser.role === 'manager') {
+      Swal.fire({ icon: 'error', title: 'ปฏิเสธสิทธิ์', text: 'คุณไม่สามารถแก้ไขผู้ดูแลระบบ (Admin) ได้', confirmButtonText: 'ตกลง' });
+      return;
+    }
+
+    document.getElementById('userForm').reset();
+    document.getElementById('user_id').value = user ? user.user_id : '';
+    document.getElementById('userModalTitle').textContent = user ? 'แก้ไขผู้ใช้งาน' : 'เพิ่มผู้ใช้งาน';
+    document.getElementById('passwordLabel').textContent = user ? 'Password ใหม่ (เว้นว่างหากไม่เปลี่ยน)' : 'Password';
+
+    const providerWrapper = document.getElementById('providerConfigWrapper');
+    if (providerWrapper) {
+      providerWrapper.style.display = currentUser.role === 'manager' ? 'none' : 'grid';
+    }
+
+    const pagePermWrapper = document.getElementById('pagePermissionsWrapper');
+    if (pagePermWrapper) {
+      pagePermWrapper.style.display = currentUser.role === 'admin' ? 'block' : 'none';
+    }
+
+    const pageCheckboxes = document.querySelectorAll('input[name="allowed_page"]');
+    const isCurrentUserAdmin = currentUser.role === 'admin';
+    pageCheckboxes.forEach(function(cb) {
+      cb.disabled = !isCurrentUserAdmin;
+      cb.checked = false;
+    });
+
+    if (user) {
+      document.getElementById('username').value = user.username;
+      document.getElementById('full_name').value = user.full_name;
+      document.getElementById('department').value = user.department;
+      document.getElementById('role').value = user.role;
+      document.getElementById('status').value = user.status;
+      document.getElementById('account_id').value = user.account_id || '';
+      document.getElementById('provider_id').value = user.provider_id || '';
+      document.getElementById('hash_cid').value = user.hash_cid || '';
+      document.getElementById('hcode').value = user.hcode || '';
+      document.getElementById('provider_name').value = user.provider_name || '';
+      document.getElementById('provider_last_login').value = user.provider_last_login || '-';
+
+      if (user.allowed_pages) {
+        const allowedList = user.allowed_pages.split(',');
+        pageCheckboxes.forEach(function(cb) {
+          if (allowedList.indexOf(cb.value) !== -1) {
+            cb.checked = true;
+          }
+        });
+      }
+    } else {
+      document.getElementById('role').value = 'user';
+      document.getElementById('status').value = 'active';
+      document.getElementById('provider_last_login').value = '-';
+    }
+
+    document.getElementById('userModal').classList.remove('hidden');
+    document.getElementById('userModal').classList.add('flex');
+  }
+
+  function closeUserModal() {
+    document.getElementById('userModal').classList.add('hidden');
+    document.getElementById('userModal').classList.remove('flex');
+  }
+
+  function submitUserForm(event) {
+    event.preventDefault();
+    const userId = document.getElementById('user_id').value;
+    const payload = collectUserPayload();
+    const message = validateUserClient(payload, !userId);
+
+    if (message) {
+      Swal.fire({ icon: 'warning', title: 'ข้อมูลไม่ครบ', text: message, confirmButtonText: 'ตกลง' });
+      return;
+    }
+
+    showLoading(true);
+    const runner = google.script.run
+      .withSuccessHandler(function (response) {
+        showLoading(false);
+        if (!response || !response.success) {
+          showUserManageError(response ? response.message : 'บันทึกข้อมูลผู้ใช้งานไม่สำเร็จ');
+          return;
+        }
+        closeUserModal();
+        Swal.fire({ icon: 'success', title: 'บันทึกสำเร็จ', text: response.message, confirmButtonText: 'ตกลง' });
+        loadUsers();
+      })
+      .withFailureHandler(function (error) {
+        showLoading(false);
+        showUserManageError(error.message || 'บันทึกข้อมูลผู้ใช้งานไม่สำเร็จ');
+      });
+
+    if (userId) {
+      runner.updateUser(userId, payload, getUserManageToken());
+    } else {
+      runner.createUser(payload, getUserManageToken());
+    }
+  }
+
+  function collectUserPayload() {
+    const selectedPages = Array.from(document.querySelectorAll('input[name="allowed_page"]:checked')).map(function(cb) {
+      return cb.value;
+    });
+    return {
+      username: document.getElementById('username').value.trim(),
+      password: document.getElementById('password').value,
+      full_name: document.getElementById('full_name').value.trim(),
+      department: document.getElementById('department').value.trim(),
+      role: document.getElementById('role').value,
+      status: document.getElementById('status').value,
+      account_id: document.getElementById('account_id').value.trim(),
+      provider_id: document.getElementById('provider_id').value.trim(),
+      hash_cid: document.getElementById('hash_cid').value.trim(),
+      hcode: document.getElementById('hcode').value.trim(),
+      provider_name: document.getElementById('provider_name').value.trim(),
+      allowed_pages: selectedPages.join(',')
+    };
+  }
+
+  function validateUserClient(payload, isCreate) {
+    if (!payload.username || !payload.full_name || !payload.role || !payload.status) return 'กรุณากรอกข้อมูลให้ครบถ้วน';
+    if (!/^[A-Za-z0-9]{3,40}$/.test(payload.username)) return 'Username ต้องเป็นตัวอักษรภาษาอังกฤษ และตัวเลข 3-40 ตัวอักษรเท่านั้น (ไม่มีภาษาไทย ช่องว่าง หรือสัญลักษณ์พิเศษ)';
+    if (isCreate && !payload.password) return 'กรุณากรอกรหัสผ่าน';
+    if (payload.password && payload.password.length < 6) return 'รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร';
+    return '';
+  }
+
+  function getUserRoleBadge(role) {
+    let text = 'ผู้ใช้งาน';
+    let style = 'bg-slate-50 text-slate-700 ring-slate-100';
+    if (role === 'admin') {
+      text = 'ผู้ดูแลระบบ';
+      style = 'bg-sky-50 text-sky-700 ring-sky-100';
+    } else if (role === 'manager') {
+      text = 'หัวหน้าแผนก';
+      style = 'bg-violet-50 text-violet-700 ring-violet-100';
+    } else if (role === 'driver_head') {
+      text = 'หัวหน้าคนขับรถ';
+      style = 'bg-indigo-50 text-indigo-700 ring-indigo-100';
+    } else if (role === 'driver') {
+      text = 'พนักงานขับรถ';
+      style = 'bg-amber-50 text-amber-700 ring-amber-100';
+    }
+    return '<span class="inline-flex rounded-full px-3 py-1 text-xs font-semibold ring-1 ' + style + '">' + escapeUserHtml(text) + '</span>';
+  }
+
+  function getUserStatusBadge(status) {
+    const style = status === 'active' ? 'bg-emerald-50 text-emerald-700 ring-emerald-100' : 'bg-red-50 text-red-700 ring-red-100';
+    return '<span class="inline-flex rounded-full px-3 py-1 text-xs font-semibold ring-1 ' + style + '">' + escapeUserHtml(status) + '</span>';
+  }
+
+  function getProviderBindBadge(user) {
+    const isBound = !!(user.hash_cid || user.provider_id);
+    const text = isBound ? (user.provider_name || user.provider_id || 'ผูกแล้ว') : 'ยังไม่ผูก';
+    const style = isBound ? 'bg-emerald-50 text-emerald-700 ring-emerald-100' : 'bg-slate-50 text-slate-600 ring-slate-100';
+    return '<span class="inline-flex max-w-48 rounded-full px-3 py-1 text-xs font-semibold ring-1 ' + style + '">' + escapeUserHtml(text) + '</span>';
+  }
+
+  function getUserManageToken() {
+    return localStorage.getItem('sph_vehicle_log_token') || '';
+  }
+
+  function showUserManageError(message) {
+    Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: message, confirmButtonText: 'ตกลง' });
+  }
+
+  function escapeUserHtml(value) {
+    return String(value || '').replace(/[&<>"']/g, function (char) {
+      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' })[char];
+    });
+  }
+</script>

@@ -1,0 +1,76 @@
+<section class="mx-auto max-w-6xl space-y-5">
+  <div class="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+    <div><p class="text-sm font-semibold text-sky-600">ตั้งค่าข้อมูลหลัก</p><h2 class="mt-1 text-2xl font-bold text-slate-950">จัดการสถานที่ไป</h2></div>
+    <button type="button" onclick="openDestinationModal()" class="rounded-xl bg-sky-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-sky-700">เพิ่มสถานที่ไป</button>
+  </div>
+  <div class="page-card overflow-hidden">
+    <div id="destinationInfo" class="border-b border-slate-100 px-4 py-3 text-sm text-slate-500">กำลังโหลดข้อมูล...</div>
+    <div class="overflow-x-auto"><table class="min-w-full divide-y divide-slate-200"><thead class="bg-slate-50"><tr><th class="px-4 py-3 text-left text-xs font-bold uppercase text-slate-500">สถานที่ไป</th><th class="px-4 py-3 text-left text-xs font-bold uppercase text-slate-500">สถานะ</th><th class="px-4 py-3 text-left text-xs font-bold uppercase text-slate-500">หมายเหตุ</th><th class="px-4 py-3 text-right text-xs font-bold uppercase text-slate-500">จัดการ</th></tr></thead><tbody id="destinationTableBody" class="divide-y divide-slate-100 bg-white"></tbody></table></div>
+    <div id="destinationEmpty" class="hidden px-6 py-10 text-center text-slate-500">ไม่พบข้อมูลสถานที่ไป</div>
+  </div>
+</section>
+
+<div id="destinationModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/50 px-4">
+  <div class="w-full max-w-xl rounded-2xl bg-white shadow-2xl">
+    <div class="flex items-center justify-between border-b border-slate-200 px-5 py-4"><h3 id="destinationModalTitle" class="text-lg font-bold text-slate-950">เพิ่มสถานที่ไป</h3><button onclick="closeDestinationModal()" class="rounded-lg px-3 py-1 text-xl text-slate-500 hover:bg-slate-100">&times;</button></div>
+    <form id="destinationForm" class="space-y-4 p-5">
+      <input type="hidden" id="destination_id">
+      <label class="block"><span class="mb-1 block text-sm font-semibold text-slate-700">ชื่อสถานที่ไป</span><input id="destination_name" type="text" class="destination-input"></label>
+      <label class="block"><span class="mb-1 block text-sm font-semibold text-slate-700">สถานะ</span><select id="destination_status" class="destination-input"><option value="active">active</option><option value="inactive">inactive</option></select></label>
+      <label class="block"><span class="mb-1 block text-sm font-semibold text-slate-700">หมายเหตุ</span><textarea id="destination_remark" rows="3" class="destination-input min-h-24"></textarea></label>
+      <div class="flex justify-end gap-3 border-t border-slate-100 pt-4"><button type="button" onclick="closeDestinationModal()" class="rounded-xl border border-slate-200 px-5 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">ยกเลิก</button><button type="submit" class="rounded-xl bg-sky-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-sky-700">บันทึก</button></div>
+    </form>
+  </div>
+</div>
+
+<style>.destination-input{width:100%;border-radius:.75rem;border:1px solid rgb(226 232 240);background:rgb(248 250 252);padding:.7rem .9rem;outline:none}.destination-input:focus{border-color:rgb(56 189 248);background:white;box-shadow:0 0 0 4px rgb(224 242 254)}</style>
+
+<script>
+  let destinationRows = [];
+  let destinationInitialized = false;
+  document.addEventListener('sphAuthReady', initDestinationPage);
+  document.addEventListener('DOMContentLoaded', function () { setTimeout(initDestinationPage, 300); setTimeout(initDestinationPage, 1000); });
+  function initDestinationPage() {
+    if (destinationInitialized || window.CURRENT_PAGE !== 'destinations') return;
+    const auth = window.SPH_AUTH_CONTEXT || {};
+    if (!auth.token || !auth.user || auth.user.role !== 'admin') { document.getElementById('destinationInfo').textContent = 'คุณไม่มีสิทธิ์เข้าถึงเมนูนี้'; return; }
+    destinationInitialized = true;
+    document.getElementById('destinationForm').addEventListener('submit', submitDestinationForm);
+    document.getElementById('destinationTableBody').addEventListener('click', function (event) { const button = event.target.closest('.destination-edit-button'); if (button) openDestinationModal(button.dataset.destinationId); });
+    loadDestinations();
+  }
+  function loadDestinations() {
+    showLoading(true);
+    google.script.run.withSuccessHandler(function (response) { showLoading(false); if (!response || !response.success) { showDestinationError(response ? response.message : 'โหลดข้อมูลไม่สำเร็จ'); return; } destinationRows = response.data || []; document.getElementById('destinationInfo').textContent = 'แสดง ' + destinationRows.length.toLocaleString('th-TH') + ' รายการ'; renderDestinationTable(); }).withFailureHandler(function (error) { showLoading(false); showDestinationError(error.message || 'โหลดข้อมูลไม่สำเร็จ'); }).getDestinations(getDestinationToken());
+  }
+  function renderDestinationTable() {
+    document.getElementById('destinationEmpty').classList.toggle('hidden', destinationRows.length > 0);
+    document.getElementById('destinationTableBody').innerHTML = destinationRows.map(function (row) {
+      return '<tr class="hover:bg-slate-50"><td class="px-4 py-3 text-sm font-semibold text-slate-900">' + escapeDestinationHtml(row.destination_name) + '</td><td class="px-4 py-3 text-sm">' + getDestinationStatusBadge(row.status) + '</td><td class="px-4 py-3 text-sm text-slate-700">' + escapeDestinationHtml(row.remark || '-') + '</td><td class="px-4 py-3 text-right"><button type="button" data-destination-id="' + escapeDestinationHtml(row.destination_id) + '" class="destination-edit-button rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-700">แก้ไข</button></td></tr>';
+    }).join('');
+  }
+  function openDestinationModal(destinationId) {
+    const row = destinationRows.find(function (item) { return item.destination_id === destinationId; });
+    document.getElementById('destinationModalTitle').textContent = row ? 'แก้ไขสถานที่ไป' : 'เพิ่มสถานที่ไป';
+    document.getElementById('destination_id').value = row ? row.destination_id : '';
+    document.getElementById('destination_name').value = row ? row.destination_name : '';
+    document.getElementById('destination_status').value = row ? row.status : 'active';
+    document.getElementById('destination_remark').value = row ? row.remark : '';
+    document.getElementById('destinationModal').classList.remove('hidden'); document.getElementById('destinationModal').classList.add('flex');
+  }
+  function closeDestinationModal() { document.getElementById('destinationModal').classList.add('hidden'); document.getElementById('destinationModal').classList.remove('flex'); }
+  function submitDestinationForm(event) {
+    event.preventDefault();
+    const destinationId = document.getElementById('destination_id').value;
+    const payload = { destination_name: document.getElementById('destination_name').value.trim(), status: document.getElementById('destination_status').value, remark: document.getElementById('destination_remark').value.trim() };
+    if (!payload.destination_name) { showDestinationError('กรุณากรอกชื่อสถานที่ไป'); return; }
+    showLoading(true);
+    const runner = google.script.run.withSuccessHandler(function (response) { showLoading(false); if (!response || !response.success) { showDestinationError(response ? response.message : 'บันทึกข้อมูลไม่สำเร็จ'); return; } closeDestinationModal(); Swal.fire({ icon:'success', title:'บันทึกสำเร็จ', text:response.message, confirmButtonText:'ตกลง' }); loadDestinations(); }).withFailureHandler(function (error) { showLoading(false); showDestinationError(error.message || 'บันทึกข้อมูลไม่สำเร็จ'); });
+    if (destinationId) { runner.updateDestination(destinationId, payload, getDestinationToken()); return; }
+    runner.createDestination(payload, getDestinationToken());
+  }
+  function getDestinationStatusBadge(status) { const style = status === 'active' ? 'bg-emerald-50 text-emerald-700 ring-emerald-100' : 'bg-slate-100 text-slate-600 ring-slate-200'; return '<span class="inline-flex rounded-full px-3 py-1 text-xs font-semibold ring-1 ' + style + '">' + escapeDestinationHtml(status) + '</span>'; }
+  function showDestinationError(message) { Swal.fire({ icon:'error', title:'เกิดข้อผิดพลาด', text:message, confirmButtonText:'ตกลง' }); }
+  function getDestinationToken() { return localStorage.getItem('sph_vehicle_log_token') || ''; }
+  function escapeDestinationHtml(value) { return String(value || '').replace(/[&<>"']/g, function (char) { return ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#039;' })[char]; }); }
+</script>

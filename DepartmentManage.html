@@ -1,0 +1,212 @@
+<section class="mx-auto max-w-6xl space-y-5">
+  <div class="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+    <div>
+      <p class="text-sm font-semibold text-sky-600">ตั้งค่าข้อมูลหลัก</p>
+      <h2 class="mt-1 text-2xl font-bold text-slate-950">จัดการหน่วยงานผู้ขอใช้รถ</h2>
+    </div>
+    <button type="button" onclick="openDepartmentModal()" class="rounded-xl bg-sky-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-sky-700">เพิ่มหน่วยงาน</button>
+  </div>
+
+  <div class="page-card overflow-hidden">
+    <div id="departmentInfo" class="border-b border-slate-100 px-4 py-3 text-sm text-slate-500">กำลังโหลดข้อมูลหน่วยงาน...</div>
+    <div class="overflow-x-auto">
+      <table class="min-w-full divide-y divide-slate-200">
+        <thead class="bg-slate-50">
+          <tr>
+            <th class="px-4 py-3 text-left text-xs font-bold uppercase text-slate-500">หน่วยงาน</th>
+            <th class="px-4 py-3 text-left text-xs font-bold uppercase text-slate-500">สถานะ</th>
+            <th class="px-4 py-3 text-left text-xs font-bold uppercase text-slate-500">หมายเหตุ</th>
+            <th class="px-4 py-3 text-right text-xs font-bold uppercase text-slate-500">จัดการ</th>
+          </tr>
+        </thead>
+        <tbody id="departmentTableBody" class="divide-y divide-slate-100 bg-white"></tbody>
+      </table>
+    </div>
+    <div id="departmentEmpty" class="hidden px-6 py-10 text-center text-slate-500">ไม่พบข้อมูลหน่วยงาน</div>
+  </div>
+</section>
+
+<div id="departmentModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/50 px-4">
+  <div class="w-full max-w-xl rounded-2xl bg-white shadow-2xl">
+    <div class="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+      <h3 id="departmentModalTitle" class="text-lg font-bold text-slate-950">เพิ่มหน่วยงาน</h3>
+      <button onclick="closeDepartmentModal()" class="rounded-lg px-3 py-1 text-xl text-slate-500 hover:bg-slate-100">&times;</button>
+    </div>
+    <form id="departmentForm" class="space-y-4 p-5">
+      <input type="hidden" id="department_id">
+      <label class="block">
+        <span class="mb-1 block text-sm font-semibold text-slate-700">ชื่อหน่วยงาน</span>
+        <input id="department_name" type="text" class="department-input">
+      </label>
+      <label class="block">
+        <span class="mb-1 block text-sm font-semibold text-slate-700">สถานะ</span>
+        <select id="department_status" class="department-input">
+          <option value="active">active</option>
+          <option value="inactive">inactive</option>
+        </select>
+      </label>
+      <label class="block">
+        <span class="mb-1 block text-sm font-semibold text-slate-700">หมายเหตุ</span>
+        <textarea id="department_remark" rows="3" class="department-input min-h-24"></textarea>
+      </label>
+      <div class="flex justify-end gap-3 border-t border-slate-100 pt-4">
+        <button type="button" onclick="closeDepartmentModal()" class="rounded-xl border border-slate-200 px-5 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">ยกเลิก</button>
+        <button type="submit" class="rounded-xl bg-sky-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-sky-700">บันทึก</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<style>
+  .department-input {
+    width: 100%;
+    border-radius: 0.75rem;
+    border: 1px solid rgb(226 232 240);
+    background: rgb(248 250 252);
+    padding: 0.7rem 0.9rem;
+    outline: none;
+  }
+
+  .department-input:focus {
+    border-color: rgb(56 189 248);
+    background: white;
+    box-shadow: 0 0 0 4px rgb(224 242 254);
+  }
+</style>
+
+<script>
+  let departmentRows = [];
+  let departmentInitialized = false;
+
+  document.addEventListener('sphAuthReady', initDepartmentPage);
+  document.addEventListener('DOMContentLoaded', function () {
+    setTimeout(initDepartmentPage, 300);
+    setTimeout(initDepartmentPage, 1000);
+  });
+
+  function initDepartmentPage() {
+    if (departmentInitialized || window.CURRENT_PAGE !== 'departments') return;
+    const auth = window.SPH_AUTH_CONTEXT || {};
+    if (!auth.token || !auth.user || auth.user.role !== 'admin') {
+      document.getElementById('departmentInfo').textContent = 'คุณไม่มีสิทธิ์เข้าถึงเมนูนี้';
+      return;
+    }
+
+    departmentInitialized = true;
+    document.getElementById('departmentForm').addEventListener('submit', submitDepartmentForm);
+    loadDepartments();
+  }
+
+  function loadDepartments() {
+    showLoading(true);
+    google.script.run
+      .withSuccessHandler(function (response) {
+        showLoading(false);
+        if (!response || !response.success) {
+          showDepartmentError(response ? response.message : 'โหลดข้อมูลหน่วยงานไม่สำเร็จ');
+          return;
+        }
+
+        departmentRows = response.data || [];
+        document.getElementById('departmentInfo').textContent = 'แสดง ' + departmentRows.length.toLocaleString('th-TH') + ' รายการ';
+        renderDepartmentTable();
+      })
+      .withFailureHandler(function (error) {
+        showLoading(false);
+        showDepartmentError(error.message || 'โหลดข้อมูลหน่วยงานไม่สำเร็จ');
+      })
+      .getDepartments(getDepartmentToken());
+  }
+
+  function renderDepartmentTable() {
+    document.getElementById('departmentEmpty').classList.toggle('hidden', departmentRows.length > 0);
+    document.getElementById('departmentTableBody').innerHTML = departmentRows.map(function (department) {
+      return '<tr class="hover:bg-slate-50">' +
+        '<td class="px-4 py-3 text-sm font-semibold text-slate-900">' + escapeDepartmentHtml(department.department_name) + '</td>' +
+        '<td class="px-4 py-3 text-sm">' + getDepartmentStatusBadge(department.status) + '</td>' +
+        '<td class="px-4 py-3 text-sm text-slate-700">' + escapeDepartmentHtml(department.remark || '-') + '</td>' +
+        '<td class="px-4 py-3 text-right"><button type="button" data-department-id="' + escapeDepartmentHtml(department.department_id) + '" class="department-edit-button rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-700">แก้ไข</button></td>' +
+      '</tr>';
+    }).join('');
+  }
+
+  document.getElementById('departmentTableBody').addEventListener('click', function (event) {
+    const button = event.target.closest('.department-edit-button');
+    if (!button) return;
+    openDepartmentModal(button.dataset.departmentId);
+  });
+
+  function openDepartmentModal(departmentId) {
+    const department = departmentRows.find(function (row) { return row.department_id === departmentId; });
+    document.getElementById('departmentModalTitle').textContent = department ? 'แก้ไขหน่วยงาน' : 'เพิ่มหน่วยงาน';
+    document.getElementById('department_id').value = department ? department.department_id : '';
+    document.getElementById('department_name').value = department ? department.department_name : '';
+    document.getElementById('department_status').value = department ? department.status : 'active';
+    document.getElementById('department_remark').value = department ? department.remark : '';
+    document.getElementById('departmentModal').classList.remove('hidden');
+    document.getElementById('departmentModal').classList.add('flex');
+  }
+
+  function closeDepartmentModal() {
+    document.getElementById('departmentModal').classList.add('hidden');
+    document.getElementById('departmentModal').classList.remove('flex');
+  }
+
+  function submitDepartmentForm(event) {
+    event.preventDefault();
+    const departmentId = document.getElementById('department_id').value;
+    const payload = {
+      department_name: document.getElementById('department_name').value.trim(),
+      status: document.getElementById('department_status').value,
+      remark: document.getElementById('department_remark').value.trim()
+    };
+
+    if (!payload.department_name) {
+      showDepartmentError('กรุณากรอกชื่อหน่วยงาน');
+      return;
+    }
+
+    showLoading(true);
+    const runner = google.script.run
+      .withSuccessHandler(function (response) {
+        showLoading(false);
+        if (!response || !response.success) {
+          showDepartmentError(response ? response.message : 'บันทึกข้อมูลไม่สำเร็จ');
+          return;
+        }
+        closeDepartmentModal();
+        Swal.fire({ icon: 'success', title: 'บันทึกสำเร็จ', text: response.message, confirmButtonText: 'ตกลง' });
+        loadDepartments();
+      })
+      .withFailureHandler(function (error) {
+        showLoading(false);
+        showDepartmentError(error.message || 'บันทึกข้อมูลไม่สำเร็จ');
+      });
+
+    if (departmentId) {
+      runner.updateDepartment(departmentId, payload, getDepartmentToken());
+      return;
+    }
+
+    runner.createDepartment(payload, getDepartmentToken());
+  }
+
+  function getDepartmentStatusBadge(status) {
+    const style = status === 'active' ? 'bg-emerald-50 text-emerald-700 ring-emerald-100' : 'bg-slate-100 text-slate-600 ring-slate-200';
+    return '<span class="inline-flex rounded-full px-3 py-1 text-xs font-semibold ring-1 ' + style + '">' + escapeDepartmentHtml(status) + '</span>';
+  }
+
+  function showDepartmentError(message) {
+    Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: message, confirmButtonText: 'ตกลง' });
+  }
+
+  function getDepartmentToken() {
+    return localStorage.getItem('sph_vehicle_log_token') || '';
+  }
+
+  function escapeDepartmentHtml(value) {
+    return String(value || '').replace(/[&<>"']/g, function (char) {
+      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' })[char];
+    });
+  }
+</script>

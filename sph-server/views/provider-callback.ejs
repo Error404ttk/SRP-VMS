@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="th">
+  <head>
+    <base target="_top">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= appConfig.appShortName %></title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+      body {
+        font-family: 'Sarabun', sans-serif;
+      }
+    </style>
+  </head>
+  <body class="min-h-screen bg-slate-50 text-slate-800">
+    <main class="flex min-h-screen items-center justify-center px-4">
+      <section class="w-full max-w-md rounded-2xl bg-white p-8 text-center shadow-xl">
+        <div id="spinnerWrap">
+          <div class="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-sky-100 border-t-sky-600"></div>
+          <h1 class="text-xl font-bold text-slate-950">กำลังตรวจสอบสิทธิ์</h1>
+          <p id="statusText" class="mt-2 text-sm text-slate-500">กำลังเชื่อมต่อ Health ID / Provider ID...</p>
+        </div>
+        <div id="errorWrap" class="hidden">
+          <div class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-100 text-2xl">✕</div>
+          <h1 class="text-xl font-bold text-red-700">เข้าสู่ระบบไม่สำเร็จ</h1>
+          <p id="errorText" class="mt-2 text-sm text-slate-600"></p>
+          <a id="retryLink" href="/" target="_top" class="mt-5 inline-flex rounded-xl bg-sky-600 px-5 py-3 text-sm font-semibold text-white hover:bg-sky-700">
+            กลับหน้าเข้าสู่ระบบ
+          </a>
+        </div>
+        <a id="continueLink" href="#" target="_top" class="mt-5 hidden rounded-xl bg-sky-600 px-5 py-3 text-sm font-semibold text-white hover:bg-sky-700">
+          ไปต่อ
+        </a>
+      </section>
+    </main>
+    <script id="callback-data" type="application/json">
+      {
+        "callbackCode": <%- JSON.stringify(callbackCode) %>,
+        "callbackState": <%- JSON.stringify(callbackState) %>,
+        "appConfig": <%- JSON.stringify(appConfig) %>
+      }
+    </script>
+    <script>
+      var TOKEN_KEY = 'sph_vehicle_log_token';
+      var USER_KEY = 'sph_vehicle_log_user';
+      
+      var _data = JSON.parse(document.getElementById('callback-data').textContent);
+      var callbackCode = _data.callbackCode;
+      var callbackState = _data.callbackState;
+      var appConfig = _data.appConfig;
+
+      var statusText = document.getElementById('statusText');
+      var spinnerWrap = document.getElementById('spinnerWrap');
+      var errorWrap = document.getElementById('errorWrap');
+      var errorText = document.getElementById('errorText');
+      var continueLink = document.getElementById('continueLink');
+      var retryLink = document.getElementById('retryLink');
+
+      // Set retry link to login page
+      var baseUrl = '/';
+      retryLink.href = baseUrl;
+
+      // Run OAuth flow asynchronously via API call
+      fetch('/api/rpc/handleProviderCallback', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify([callbackCode, callbackState])
+      })
+      .then(function(res) { return res.json(); })
+      .then(function(response) {
+        if (!response || !response.success || (response.result && !response.result.success)) {
+          var msg = 'ไม่สามารถเชื่อมต่อระบบได้';
+          if (response && response.result && response.result.message) {
+            msg = response.result.message;
+          } else if (response && response.message) {
+            msg = response.message;
+          }
+          showError(msg);
+          return;
+        }
+
+        var auth = response.result.data || response.data;
+        if (auth && auth.token && auth.user) {
+          localStorage.setItem(TOKEN_KEY, auth.token);
+          localStorage.setItem(USER_KEY, JSON.stringify(auth.user));
+        }
+
+        statusText.textContent = 'เข้าสู่ระบบสำเร็จ กำลังพาไปหน้าหลัก...';
+
+        var targetUrl = (auth && auth.redirectUrl) || baseUrl;
+        continueLink.href = targetUrl;
+
+        setTimeout(function () {
+          continueLink.classList.remove('hidden');
+          continueLink.classList.add('inline-flex');
+        }, 1500);
+
+        try {
+          window.location.replace(targetUrl);
+        } catch (navError) {
+          continueLink.classList.remove('hidden');
+          continueLink.classList.add('inline-flex');
+        }
+      })
+      .catch(function(error) {
+        showError(error.message || 'เกิดข้อผิดพลาดในการเชื่อมต่อ Provider ID');
+      });
+
+      function showError(message) {
+        spinnerWrap.classList.add('hidden');
+        errorWrap.classList.remove('hidden');
+        errorText.textContent = message;
+      }
+    </script>
+  </body>
+</html>

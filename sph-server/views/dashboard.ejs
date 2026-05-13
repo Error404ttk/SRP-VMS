@@ -1,0 +1,463 @@
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<section class="mx-auto max-w-7xl space-y-5">
+  <div class="flex flex-col justify-between gap-3 lg:flex-row lg:items-center">
+    <div>
+      <p class="text-sm font-semibold text-sky-600">Dashboard</p>
+      <h2 class="mt-1 text-2xl font-bold text-slate-950">แดชบอร์ดภาพรวมการใช้รถราชการ</h2>
+    </div>
+    <div id="dashboardInfo" class="text-sm text-slate-500">กำลังโหลดข้อมูล...</div>
+  </div>
+
+  <div class="page-card grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-4">
+    <select id="dashFilterMode" class="dashboard-input" onchange="updateDashboardFilterMode()">
+      <option value="dateRange">ช่วงวันที่</option>
+      <option value="month">เดือน</option>
+      <option value="fiscalYear">ปีงบประมาณ</option>
+    </select>
+    <input id="dashStartDate" type="date" class="dashboard-input">
+    <input id="dashEndDate" type="date" class="dashboard-input">
+    <input id="dashMonth" type="month" class="dashboard-input">
+    <input id="dashFiscalYear" type="number" class="dashboard-input" placeholder="ปีงบประมาณ เช่น 2569">
+    <select id="dashVehicle" class="dashboard-input"><option value="">รถทั้งหมด</option></select>
+    <select id="dashDriver" class="dashboard-input"><option value="">คนขับทั้งหมด</option></select>
+    <select id="dashMission" class="dashboard-input"><option value="">ภารกิจทั้งหมด</option></select>
+    <select id="dashVehicleSort" class="dashboard-input" onchange="renderTopVehicleChart()">
+      <option value="trips">TOP รถ: จำนวนครั้ง</option>
+      <option value="km">TOP รถ: ระยะทางรวม</option>
+    </select>
+    <div class="flex flex-wrap gap-2 sm:col-span-2 lg:col-span-4">
+      <button type="button" onclick="applyQuickFilter('today')" class="dashboard-button">วันนี้</button>
+      <button type="button" onclick="applyQuickFilter('thisMonth')" class="dashboard-button">เดือนนี้</button>
+      <button type="button" onclick="applyQuickFilter('lastMonth')" class="dashboard-button">เดือนก่อน</button>
+      <button type="button" onclick="applyQuickFilter('fiscalYear')" class="dashboard-button">ปีงบประมาณนี้</button>
+      <button type="button" onclick="loadDashboardData()" class="rounded-xl bg-sky-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-sky-700">ค้นหา</button>
+      <button type="button" onclick="clearDashboardFilters()" class="dashboard-button">ล้างตัวกรอง</button>
+    </div>
+  </div>
+
+  <div id="dashboardSummary" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6"></div>
+
+  <div class="grid gap-5 xl:grid-cols-2">
+    <div class="dashboard-panel xl:col-span-2">
+      <h3 class="dashboard-title">แนวโน้มจำนวนครั้งการใช้รถรายวัน</h3>
+      <canvas id="dailyTrendChart" height="90"></canvas>
+    </div>
+    <div class="dashboard-panel">
+      <h3 class="dashboard-title">จำนวนการใช้รถแยกตามประเภทภารกิจ</h3>
+      <canvas id="missionBarChart"></canvas>
+    </div>
+    <div class="dashboard-panel">
+      <h3 class="dashboard-title">สัดส่วนการใช้รถตามประเภทภารกิจ</h3>
+      <canvas id="missionDoughnutChart"></canvas>
+    </div>
+    <div class="dashboard-panel">
+      <h3 class="dashboard-title">TOP 5 รถที่ถูกใช้งานมากที่สุด</h3>
+      <canvas id="topVehicleChart"></canvas>
+    </div>
+    <div class="dashboard-panel">
+      <h3 class="dashboard-title">TOP 5 พนักงานขับรถตามจำนวนภารกิจ</h3>
+      <canvas id="topDriverChart"></canvas>
+    </div>
+    <div class="dashboard-panel">
+      <h3 class="dashboard-title">TOP 10 ปลายทางที่เดินทางบ่อยที่สุด</h3>
+      <canvas id="topDestinationChart"></canvas>
+    </div>
+    <div class="dashboard-panel">
+      <h3 class="dashboard-title">ระยะทางรวมแยกตามรถราชการ</h3>
+      <canvas id="vehicleKmChart"></canvas>
+    </div>
+  </div>
+
+  <div class="page-card overflow-hidden">
+    <div class="border-b border-slate-100 px-4 py-3">
+      <h3 class="text-sm font-bold text-slate-800">รายการใช้รถล่าสุด 10 รายการ</h3>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="min-w-full divide-y divide-slate-200">
+        <thead class="bg-slate-50">
+          <tr>
+            <th class="px-4 py-3 text-left text-xs font-bold uppercase text-slate-500">วันที่</th>
+            <th class="px-4 py-3 text-left text-xs font-bold uppercase text-slate-500">เวลาออก-กลับ</th>
+            <th class="px-4 py-3 text-left text-xs font-bold uppercase text-slate-500">รถ</th>
+            <th class="px-4 py-3 text-left text-xs font-bold uppercase text-slate-500">คนขับ</th>
+            <th class="px-4 py-3 text-left text-xs font-bold uppercase text-slate-500">ภารกิจ</th>
+            <th class="px-4 py-3 text-left text-xs font-bold uppercase text-slate-500">ปลายทาง</th>
+            <th class="px-4 py-3 text-right text-xs font-bold uppercase text-slate-500">ระยะทาง</th>
+          </tr>
+        </thead>
+        <tbody id="dashboardLatestBody" class="divide-y divide-slate-100 bg-white"></tbody>
+      </table>
+    </div>
+    <div id="dashboardEmpty" class="hidden px-6 py-10 text-center text-slate-500">ไม่พบข้อมูลในช่วงที่เลือก</div>
+  </div>
+</section>
+
+<style>
+  .dashboard-input {
+    width: 100%;
+    border-radius: 0.75rem;
+    border: 1px solid rgb(226 232 240);
+    background: rgb(248 250 252);
+    padding: 0.7rem 0.9rem;
+    outline: none;
+  }
+
+  .dashboard-input:focus {
+    border-color: rgb(56 189 248);
+    background: white;
+    box-shadow: 0 0 0 4px rgb(224 242 254);
+  }
+
+  .dashboard-button {
+    border-radius: 0.75rem;
+    border: 1px solid rgb(226 232 240);
+    padding: 0.625rem 1rem;
+    font-size: 0.875rem;
+    font-weight: 700;
+    color: rgb(51 65 85);
+    background: white;
+  }
+
+  .dashboard-panel {
+    border: 1px solid rgb(226 232 240);
+    border-radius: 1rem;
+    background: white;
+    padding: 1rem;
+    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
+    min-height: 320px;
+  }
+
+  .dashboard-title {
+    margin-bottom: 0.75rem;
+    font-size: 0.95rem;
+    font-weight: 800;
+    color: rgb(15 23 42);
+  }
+</style>
+
+<script>
+  let dashboardInitialized = false;
+  let dashboardData = null;
+  let dashboardCharts = {};
+
+  document.addEventListener('sphAuthReady', initDashboardPage);
+  document.addEventListener('DOMContentLoaded', function () {
+    setTimeout(initDashboardPage, 300);
+    setTimeout(initDashboardPage, 1000);
+  });
+
+  function initDashboardPage() {
+    if (dashboardInitialized || window.CURRENT_PAGE !== 'dashboard') return;
+    if (!getDashboardToken()) {
+      document.getElementById('dashboardInfo').textContent = 'Session หมดอายุ กรุณาเข้าสู่ระบบใหม่';
+      return;
+    }
+    dashboardInitialized = true;
+    setCurrentMonthDashboardFilters();
+    updateDashboardFilterMode();
+    loadDashboardOptions();
+  }
+
+  function loadDashboardOptions() {
+    const token = getDashboardToken();
+    showLoading(true);
+    google.script.run
+      .withSuccessHandler(function (response) {
+        showLoading(false);
+        if (!response || !response.success) {
+          showDashboardError(response ? response.message : 'ไม่สามารถโหลดหน้า Dashboard ได้');
+          return;
+        }
+
+        renderDashboardVehicleOptions(response.data && response.data.vehicles ? response.data.vehicles : []);
+        renderDashboardDriverOptions(response.data && response.data.drivers ? response.data.drivers : []);
+        renderDashboardMissionOptions(response.data && response.data.missionTypes ? response.data.missionTypes : null);
+        dashboardData = response.data && response.data.dashboard ? response.data.dashboard : {};
+        document.getElementById('dashboardInfo').textContent = 'อัปเดตข้อมูลล่าสุด';
+        renderDashboard();
+      })
+      .withFailureHandler(function (error) {
+        showLoading(false);
+        showDashboardError(error.message || 'ไม่สามารถโหลดหน้า Dashboard ได้');
+      })
+      .getDashboardInitialData(collectDashboardFilters(), token);
+  }
+
+  function loadDashboardData() {
+    const token = getDashboardToken();
+    const filters = collectDashboardFilters();
+
+    document.getElementById('dashboardInfo').textContent = 'กำลังโหลดข้อมูล...';
+    showLoading(true);
+    google.script.run
+      .withSuccessHandler(function (response) {
+        showLoading(false);
+        if (!response || !response.success) {
+          document.getElementById('dashboardInfo').textContent = response ? response.message : 'โหลดข้อมูลไม่สำเร็จ';
+          showDashboardError(response ? response.message : 'โหลดข้อมูลไม่สำเร็จ');
+          return;
+        }
+        dashboardData = response.data || {};
+        document.getElementById('dashboardInfo').textContent = 'อัปเดตข้อมูลล่าสุด';
+        renderDashboard();
+      })
+      .withFailureHandler(function (error) {
+        showLoading(false);
+        document.getElementById('dashboardInfo').textContent = error.message || 'โหลดข้อมูลไม่สำเร็จ';
+        showDashboardError(error.message || 'โหลดข้อมูลไม่สำเร็จ');
+      })
+      .getDashboardData(filters, token);
+  }
+
+  function collectDashboardFilters() {
+    const mode = document.getElementById('dashFilterMode').value;
+
+    return {
+      filterMode: mode,
+      startDate: mode === 'dateRange' ? document.getElementById('dashStartDate').value : '',
+      endDate: mode === 'dateRange' ? document.getElementById('dashEndDate').value : '',
+      month: mode === 'month' ? document.getElementById('dashMonth').value : '',
+      fiscalYear: mode === 'fiscalYear' ? document.getElementById('dashFiscalYear').value : '',
+      vehicleId: document.getElementById('dashVehicle').value,
+      driverId: document.getElementById('dashDriver').value,
+      missionType: document.getElementById('dashMission').value
+    };
+  }
+
+  function renderDashboard() {
+    renderDashboardSummary();
+    renderDailyTrendChart();
+    renderMissionCharts();
+    renderTopVehicleChart();
+    renderHorizontalChart('topDriverChart', dashboardData.topDrivers || [], 'count');
+    renderHorizontalChart('topDestinationChart', dashboardData.topDestinations || [], 'count');
+    renderBarChart('vehicleKmChart', dashboardData.vehicleKmStats || [], 'km');
+    renderDashboardLatestLogs();
+  }
+
+  function renderDashboardSummary() {
+    const summary = dashboardData.summary || {};
+    const performance = dashboardData.performance || {};
+    const modeLabel = performance.dataMode === 'summary' ? ' ใช้ข้อมูลสรุปรายเดือนเพื่อให้โหลดเร็วขึ้น' : '';
+    const cards = [
+      ['จำนวนครั้งในช่วงที่เลือก', summary.totalTrips || 0],
+      ['ระยะทางรวมที่ปิดงานแล้ว', formatNumber(summary.totalKm || 0) + ' กม.'],
+      ['ภารกิจ Refer ในช่วงที่เลือก', summary.totalRefer || 0],
+      ['จำนวนรถที่มีรายการใช้งาน', summary.activeVehicles || 0],
+      ['รถที่ใช้งานมากที่สุด', summary.topVehicle || 'ไม่มีข้อมูล'],
+      ['คนขับที่มีภารกิจมากที่สุด', summary.topDriver || 'ไม่มีข้อมูล']
+    ];
+    document.getElementById('dashboardSummary').innerHTML = cards.map(function (card) {
+      return '<div class="page-card p-4">' +
+        '<p class="text-xs font-bold text-slate-500">' + escapeDashboardHtml(card[0]) + '</p>' +
+        '<p class="mt-2 text-xl font-extrabold text-slate-950">' + escapeDashboardHtml(card[1]) + '</p>' +
+      '</div>';
+    }).join('') + '<div class="text-xs font-semibold text-slate-500 sm:col-span-2 lg:col-span-3 xl:col-span-6">ช่วงข้อมูล: ' + escapeDashboardHtml(summary.rangeLabel || 'ทั้งหมด') + escapeDashboardHtml(modeLabel) + '</div>';
+  }
+
+  function renderDailyTrendChart() {
+    const rows = dashboardData.dailyTrend || [];
+    renderChart('dailyTrendChart', {
+      type: 'line',
+      data: {
+        labels: rows.map(function (row) { return row.dateDisplay || formatThaiDate(row.date); }),
+        datasets: [{
+          label: 'จำนวนครั้ง',
+          data: rows.map(function (row) { return row.count; }),
+          borderColor: '#0284c7',
+          backgroundColor: 'rgba(14, 165, 233, 0.14)',
+          fill: true,
+          tension: 0.35
+        }]
+      },
+      options: baseChartOptions()
+    });
+  }
+
+  function renderMissionCharts() {
+    const rows = dashboardData.missionTypeStats || [];
+    renderBarChart('missionBarChart', rows, 'count');
+    renderChart('missionDoughnutChart', {
+      type: 'doughnut',
+      data: {
+        labels: rows.map(function (row) { return row.name; }),
+        datasets: [{
+          data: rows.map(function (row) { return row.count; }),
+          backgroundColor: dashboardColors()
+        }]
+      },
+      options: baseChartOptions()
+    });
+  }
+
+  function renderTopVehicleChart() {
+    if (!dashboardData) return;
+    const sortMode = document.getElementById('dashVehicleSort').value;
+    const rows = sortMode === 'km' ? dashboardData.topVehiclesByKm || [] : dashboardData.topVehiclesByTrips || [];
+    renderHorizontalChart('topVehicleChart', rows, sortMode === 'km' ? 'km' : 'count');
+  }
+
+  function renderBarChart(canvasId, rows, key) {
+    renderChart(canvasId, {
+      type: 'bar',
+      data: {
+        labels: rows.map(function (row) { return row.name; }),
+        datasets: [{
+          label: key === 'km' ? 'ระยะทางรวม' : 'จำนวนครั้ง',
+          data: rows.map(function (row) { return row[key] || 0; }),
+          backgroundColor: '#0ea5e9'
+        }]
+      },
+      options: baseChartOptions()
+    });
+  }
+
+  function renderHorizontalChart(canvasId, rows, key) {
+    renderChart(canvasId, {
+      type: 'bar',
+      data: {
+        labels: rows.map(function (row) { return row.name; }),
+        datasets: [{
+          label: key === 'km' ? 'ระยะทางรวม' : 'จำนวนครั้ง',
+          data: rows.map(function (row) { return row[key] || 0; }),
+          backgroundColor: '#10b981'
+        }]
+      },
+      options: Object.assign(baseChartOptions(), { indexAxis: 'y' })
+    });
+  }
+
+  function renderChart(canvasId, config) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    if (dashboardCharts[canvasId]) dashboardCharts[canvasId].destroy();
+    dashboardCharts[canvasId] = new Chart(canvas, config);
+  }
+
+  function renderDashboardLatestLogs() {
+    const rows = dashboardData.latestLogs || [];
+    document.getElementById('dashboardEmpty').classList.toggle('hidden', rows.length > 0);
+    if ((dashboardData.performance || {}).dataMode === 'summary') {
+      document.getElementById('dashboardEmpty').textContent = 'โหมดข้อมูลสรุปรายเดือนจะไม่แสดงรายการล่าสุดเพื่อให้โหลดเร็วขึ้น';
+    } else {
+      document.getElementById('dashboardEmpty').textContent = 'ไม่พบข้อมูลในช่วงที่เลือก';
+    }
+    document.getElementById('dashboardLatestBody').innerHTML = rows.map(function (row) {
+      return '<tr class="hover:bg-slate-50">' +
+        '<td class="px-4 py-3 text-sm text-slate-700">' + escapeDashboardHtml(formatThaiDate(row.usage_date)) + '</td>' +
+        '<td class="px-4 py-3 text-sm text-slate-700">' + escapeDashboardHtml(formatTimeRange(row.start_time, row.end_time)) + '</td>' +
+        '<td class="px-4 py-3 text-sm font-semibold text-slate-900">' + escapeDashboardHtml(row.vehicle_name) + '</td>' +
+        '<td class="px-4 py-3 text-sm text-slate-700">' + escapeDashboardHtml(row.driver_name) + '</td>' +
+        '<td class="px-4 py-3 text-sm text-slate-700">' + escapeDashboardHtml(row.mission_type) + '</td>' +
+        '<td class="px-4 py-3 text-sm text-slate-700">' + escapeDashboardHtml(row.destination) + '</td>' +
+        '<td class="px-4 py-3 text-right text-sm text-slate-700">' + formatNumber(row.total_km || 0) + '</td>' +
+      '</tr>';
+    }).join('');
+  }
+
+  function renderDashboardVehicleOptions(rows) {
+    document.getElementById('dashVehicle').innerHTML = '<option value="">รถทั้งหมด</option>' + rows.map(function (row) {
+      return '<option value="' + escapeDashboardHtml(row.vehicle_id) + '">' + escapeDashboardHtml(row.vehicle_name) + '</option>';
+    }).join('');
+  }
+
+  function renderDashboardDriverOptions(rows) {
+    document.getElementById('dashDriver').innerHTML = '<option value="">คนขับทั้งหมด</option>' + rows.map(function (row) {
+      return '<option value="' + escapeDashboardHtml(row.driver_id) + '">' + escapeDashboardHtml(row.full_name) + '</option>';
+    }).join('');
+  }
+
+  function renderDashboardMissionOptions(sourceMissionTypes) {
+    const missionTypes = sourceMissionTypes || (window.APP_CONFIG && window.APP_CONFIG.missionTypes ? window.APP_CONFIG.missionTypes : []);
+    document.getElementById('dashMission').innerHTML = '<option value="">ภารกิจทั้งหมด</option>' + missionTypes.map(function (missionType) {
+      const missionTypeName = missionType.mission_type_name || missionType;
+      return '<option value="' + escapeDashboardHtml(missionTypeName) + '">' + escapeDashboardHtml(missionTypeName) + '</option>';
+    }).join('');
+  }
+
+  function applyQuickFilter(mode) {
+    const today = new Date();
+    let start = new Date(today);
+    let end = new Date(today);
+    if (mode === 'thisMonth') {
+      start = new Date(today.getFullYear(), today.getMonth(), 1);
+      end = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+    }
+    if (mode === 'lastMonth') {
+      start = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+      end = new Date(today.getFullYear(), today.getMonth(), 0);
+    }
+    if (mode === 'fiscalYear') {
+      const year = today.getMonth() >= 9 ? today.getFullYear() + 1 : today.getFullYear();
+      start = new Date(year - 1, 9, 1);
+      end = new Date(year, 8, 30);
+      document.getElementById('dashFiscalYear').value = year + 543;
+    }
+    document.getElementById('dashFilterMode').value = mode === 'fiscalYear' ? 'fiscalYear' : 'dateRange';
+    document.getElementById('dashStartDate').value = toIsoDate(start);
+    document.getElementById('dashEndDate').value = toIsoDate(end);
+    if (mode !== 'fiscalYear') document.getElementById('dashFiscalYear').value = '';
+    document.getElementById('dashMonth').value = '';
+    updateDashboardFilterMode();
+    loadDashboardData();
+  }
+
+  function clearDashboardFilters() {
+    ['dashStartDate', 'dashEndDate', 'dashMonth', 'dashFiscalYear', 'dashVehicle', 'dashDriver', 'dashMission'].forEach(function (id) {
+      document.getElementById(id).value = '';
+    });
+    setCurrentMonthDashboardFilters();
+    updateDashboardFilterMode();
+    loadDashboardData();
+  }
+
+  function setCurrentMonthDashboardFilters() {
+    const today = new Date();
+    document.getElementById('dashFilterMode').value = 'dateRange';
+    document.getElementById('dashStartDate').value = toIsoDate(new Date(today.getFullYear(), today.getMonth(), 1));
+    document.getElementById('dashEndDate').value = toIsoDate(new Date(today.getFullYear(), today.getMonth() + 1, 0));
+    document.getElementById('dashMonth').value = '';
+    document.getElementById('dashFiscalYear').value = '';
+  }
+
+  function updateDashboardFilterMode() {
+    const mode = document.getElementById('dashFilterMode').value;
+    document.getElementById('dashStartDate').classList.toggle('hidden', mode !== 'dateRange');
+    document.getElementById('dashEndDate').classList.toggle('hidden', mode !== 'dateRange');
+    document.getElementById('dashMonth').classList.toggle('hidden', mode !== 'month');
+    document.getElementById('dashFiscalYear').classList.toggle('hidden', mode !== 'fiscalYear');
+  }
+
+  function baseChartOptions() {
+    return {
+      responsive: true,
+      maintainAspectRatio: true,
+      plugins: {
+        legend: { display: true, labels: { font: { family: 'Sarabun' } } }
+      },
+      scales: {
+        x: { ticks: { font: { family: 'Sarabun' } } },
+        y: { ticks: { font: { family: 'Sarabun' } }, beginAtZero: true }
+      }
+    };
+  }
+
+  function dashboardColors() {
+    return ['#0284c7', '#10b981', '#f59e0b', '#ef4444', '#64748b', '#14b8a6', '#2563eb', '#84cc16', '#f97316', '#0f766e'];
+  }
+
+  function getDashboardToken() {
+    return localStorage.getItem('sph_vehicle_log_token') || '';
+  }
+
+  function showDashboardError(message) {
+    Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: message, confirmButtonText: 'ตกลง' });
+  }
+
+  function escapeDashboardHtml(value) {
+    return String(value || '').replace(/[&<>"']/g, function (char) {
+      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' })[char];
+    });
+  }
+</script>

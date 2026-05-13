@@ -1,0 +1,337 @@
+<section class="mx-auto max-w-7xl space-y-5">
+  <div class="flex flex-col justify-between gap-3 lg:flex-row lg:items-center">
+    <div>
+      <p class="text-sm font-semibold text-sky-600">รายงาน</p>
+      <h2 class="mt-1 text-2xl font-bold text-slate-950">รายงานการใช้รถราชการ</h2>
+    </div>
+    <div id="reportInfo" class="text-sm text-slate-500">กำลังโหลดข้อมูล...</div>
+  </div>
+
+  <div class="page-card grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-4">
+    <input id="reportStartDate" type="date" class="report-input">
+    <input id="reportEndDate" type="date" class="report-input">
+    <select id="reportVehicle" class="report-input"><option value="">รถทั้งหมด</option></select>
+    <select id="reportDriver" class="report-input"><option value="">คนขับทั้งหมด</option></select>
+    <select id="reportMission" class="report-input"><option value="">ภารกิจทั้งหมด</option></select>
+    <select id="reportStatus" class="report-input">
+      <option value="">สถานะทั้งหมด</option>
+      <option value="in_use">in_use</option>
+      <option value="completed">completed</option>
+      <option value="cancelled">cancelled</option>
+    </select>
+    <input id="reportKeyword" type="text" class="report-input sm:col-span-2" placeholder="ค้นหาคำ">
+    <div class="flex flex-wrap gap-2 sm:col-span-2 lg:col-span-4">
+      <button type="button" onclick="loadReportData()" class="rounded-xl bg-sky-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-sky-700">ค้นหา</button>
+      <button type="button" onclick="clearReportFilters()" class="report-button">ล้างตัวกรอง</button>
+      <button type="button" onclick="exportReportCsv()" class="rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700">Export CSV</button>
+    </div>
+  </div>
+
+  <div id="reportSummary" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-5"></div>
+
+  <div class="page-card overflow-hidden">
+    <div class="border-b border-slate-100 px-4 py-3 text-sm font-bold text-slate-800">ตารางรายงานการใช้รถ</div>
+    <div class="overflow-x-auto">
+      <table class="min-w-full divide-y divide-slate-200">
+        <thead class="bg-slate-50">
+          <tr>
+            <th class="px-4 py-3 text-left text-xs font-bold uppercase text-slate-500">วันที่</th>
+            <th class="px-4 py-3 text-left text-xs font-bold uppercase text-slate-500">เวลา</th>
+            <th class="px-4 py-3 text-left text-xs font-bold uppercase text-slate-500">รถ</th>
+            <th class="px-4 py-3 text-left text-xs font-bold uppercase text-slate-500">ทะเบียน</th>
+            <th class="px-4 py-3 text-left text-xs font-bold uppercase text-slate-500">คนขับ</th>
+            <th class="px-4 py-3 text-left text-xs font-bold uppercase text-slate-500">ภารกิจ</th>
+            <th class="px-4 py-3 text-left text-xs font-bold uppercase text-slate-500">ปลายทาง</th>
+            <th class="px-4 py-3 text-left text-xs font-bold uppercase text-slate-500">ผู้ขอใช้</th>
+            <th class="px-4 py-3 text-left text-xs font-bold uppercase text-slate-500">หน่วยงาน</th>
+            <th class="px-4 py-3 text-right text-xs font-bold uppercase text-slate-500">ระยะทาง</th>
+            <th class="px-4 py-3 text-right text-xs font-bold uppercase text-slate-500">ผู้โดยสาร</th>
+            <th class="px-4 py-3 text-left text-xs font-bold uppercase text-slate-500">สถานะ</th>
+            <th class="px-4 py-3 text-left text-xs font-bold uppercase text-slate-500">ผู้บันทึก</th>
+          </tr>
+        </thead>
+        <tbody id="reportTableBody" class="divide-y divide-slate-100 bg-white"></tbody>
+      </table>
+    </div>
+    <div id="reportEmpty" class="hidden px-6 py-10 text-center text-slate-500">ไม่พบข้อมูลรายงานตามตัวกรองที่เลือก</div>
+    <div class="border-t border-slate-100 px-4 py-3 text-center">
+      <button id="reportLoadMoreButton" type="button" onclick="loadMoreReportData()" class="hidden rounded-xl border border-slate-200 px-5 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">โหลดเพิ่ม</button>
+    </div>
+  </div>
+</section>
+
+<style>
+  .report-input {
+    width: 100%;
+    border-radius: 0.75rem;
+    border: 1px solid rgb(226 232 240);
+    background: rgb(248 250 252);
+    padding: 0.7rem 0.9rem;
+    outline: none;
+  }
+
+  .report-input:focus {
+    border-color: rgb(56 189 248);
+    background: white;
+    box-shadow: 0 0 0 4px rgb(224 242 254);
+  }
+
+  .report-button {
+    border-radius: 0.75rem;
+    border: 1px solid rgb(226 232 240);
+    padding: 0.625rem 1rem;
+    font-size: 0.875rem;
+    font-weight: 700;
+    color: rgb(51 65 85);
+    background: white;
+  }
+</style>
+
+<script>
+  let reportInitialized = false;
+  let reportRows = [];
+  let reportMeta = {
+    totalRows: 0,
+    limit: 50,
+    offset: 0,
+    dataMode: 'detail'
+  };
+
+  document.addEventListener('sphAuthReady', initReportPage);
+  document.addEventListener('DOMContentLoaded', function () {
+    setTimeout(initReportPage, 300);
+    setTimeout(initReportPage, 1000);
+  });
+
+  function initReportPage() {
+    if (reportInitialized || window.CURRENT_PAGE !== 'reports') return;
+    const auth = window.SPH_AUTH_CONTEXT || {};
+    if (!getReportToken()) {
+      document.getElementById('reportInfo').textContent = 'Session หมดอายุ กรุณาเข้าสู่ระบบใหม่';
+      return;
+    }
+    if (!auth.user || auth.user.role !== 'admin') {
+      document.getElementById('reportInfo').textContent = 'คุณไม่มีสิทธิ์เข้าถึงรายงาน';
+      return;
+    }
+
+    reportInitialized = true;
+    loadReportOptions();
+  }
+
+  function loadReportOptions() {
+    const token = getReportToken();
+    showLoading(true);
+    google.script.run
+      .withSuccessHandler(function (response) {
+        showLoading(false);
+        if (!response || !response.success) {
+          showReportError(response ? response.message : 'ไม่สามารถโหลดหน้ารายงานได้');
+          return;
+        }
+
+        renderReportVehicleOptions(response.data && response.data.vehicles ? response.data.vehicles : []);
+        renderReportDriverOptions(response.data && response.data.drivers ? response.data.drivers : []);
+        renderReportMissionOptions(response.data && response.data.missionTypes ? response.data.missionTypes : null);
+        applyReportData(response.data && response.data.report ? response.data.report : {});
+      })
+      .withFailureHandler(function (error) {
+        showLoading(false);
+        showReportError(error.message || 'ไม่สามารถโหลดหน้ารายงานได้');
+      })
+      .getReportInitialData(collectReportFilters(), token);
+  }
+
+  function loadReportData(isLoadMore) {
+    const token = getReportToken();
+    const filters = collectReportFilters();
+    filters.offset = isLoadMore ? reportRows.length : 0;
+    document.getElementById('reportInfo').textContent = 'กำลังโหลดข้อมูล...';
+    showLoading(true);
+    google.script.run
+      .withSuccessHandler(function (response) {
+        showLoading(false);
+        if (!response || !response.success) {
+          document.getElementById('reportInfo').textContent = response ? response.message : 'โหลดรายงานไม่สำเร็จ';
+          showReportError(response ? response.message : 'โหลดรายงานไม่สำเร็จ');
+          return;
+        }
+        applyReportData(response.data || {}, isLoadMore);
+      })
+      .withFailureHandler(function (error) {
+        showLoading(false);
+        document.getElementById('reportInfo').textContent = error.message || 'โหลดรายงานไม่สำเร็จ';
+        showReportError(error.message || 'โหลดรายงานไม่สำเร็จ');
+      })
+      .getReportData(filters, token);
+  }
+
+  function loadMoreReportData() {
+    loadReportData(true);
+  }
+
+  function applyReportData(data, isLoadMore) {
+    const rows = data && data.rows ? data.rows : [];
+    reportRows = isLoadMore ? reportRows.concat(rows) : rows;
+    reportMeta = {
+      totalRows: data && data.summary ? data.summary.totalRows || reportRows.length : reportRows.length,
+      limit: data && data.limit ? data.limit : 50,
+      offset: data && data.offset ? data.offset : 0,
+      dataMode: data && data.performance ? data.performance.dataMode || 'detail' : 'detail'
+    };
+    document.getElementById('reportInfo').textContent = getReportInfoText();
+    renderReportSummary(data && data.summary ? data.summary : {});
+    renderReportTable();
+  }
+
+  function exportReportCsv() {
+    const token = getReportToken();
+    showLoading(true);
+    google.script.run
+      .withSuccessHandler(function (response) {
+        showLoading(false);
+        if (!response || !response.success) {
+          showReportError(response ? response.message : 'Export CSV ไม่สำเร็จ');
+          return;
+        }
+        downloadReportCsv(response.data.content, response.data.fileName);
+        Swal.fire({
+          icon: 'success',
+          title: 'Export CSV สำเร็จ',
+          text: 'ส่งออกข้อมูล ' + (response.data.rowCount || 0) + ' รายการ',
+          confirmButtonText: 'ตกลง'
+        });
+      })
+      .withFailureHandler(function (error) {
+        showLoading(false);
+        showReportError(error.message || 'Export CSV ไม่สำเร็จ');
+      })
+      .exportUsageCsv(collectReportFilters(), token);
+  }
+
+  function renderReportSummary(summary) {
+    const cards = [
+      ['รายการทั้งหมด', summary.totalRows || 0],
+      ['ภารกิจสำเร็จ', summary.completedTrips || 0],
+      ['รายการยกเลิก', summary.cancelledTrips || 0],
+      ['ระยะทางรวม', formatNumber(summary.totalKm || 0) + ' กม.'],
+      ['ผู้โดยสารรวม', formatNumber(summary.totalPassengers || 0)]
+    ];
+    document.getElementById('reportSummary').innerHTML = cards.map(function (card) {
+      return '<div class="page-card p-4">' +
+        '<p class="text-xs font-bold text-slate-500">' + escapeReportHtml(card[0]) + '</p>' +
+        '<p class="mt-2 text-xl font-extrabold text-slate-950">' + escapeReportHtml(card[1]) + '</p>' +
+      '</div>';
+    }).join('');
+  }
+
+  function renderReportTable() {
+    document.getElementById('reportEmpty').classList.toggle('hidden', reportRows.length > 0);
+    document.getElementById('reportLoadMoreButton').classList.toggle('hidden', reportRows.length >= Number(reportMeta.totalRows || reportRows.length));
+    document.getElementById('reportTableBody').innerHTML = reportRows.map(function (row) {
+      return '<tr class="hover:bg-slate-50">' +
+        '<td class="px-4 py-3 text-sm text-slate-700">' + escapeReportHtml(formatThaiDate(row.usage_date)) + '</td>' +
+        '<td class="px-4 py-3 text-sm text-slate-700">' + escapeReportHtml(formatTimeRange(row.start_time, row.end_time)) + '</td>' +
+        '<td class="px-4 py-3 text-sm font-semibold text-slate-900">' + escapeReportHtml(row.vehicle_name) + '</td>' +
+        '<td class="px-4 py-3 text-sm text-slate-600">' + escapeReportHtml(row.plate_no) + '</td>' +
+        '<td class="px-4 py-3 text-sm text-slate-700">' + escapeReportHtml(row.driver_name) + '</td>' +
+        '<td class="px-4 py-3 text-sm text-slate-700">' + escapeReportHtml(row.mission_type) + '</td>' +
+        '<td class="px-4 py-3 text-sm text-slate-700">' + escapeReportHtml(row.destination) + '</td>' +
+        '<td class="px-4 py-3 text-sm text-slate-700">' + escapeReportHtml(row.requester_name) + '</td>' +
+        '<td class="px-4 py-3 text-sm text-slate-700">' + escapeReportHtml(row.requester_department) + '</td>' +
+        '<td class="px-4 py-3 text-right text-sm text-slate-700">' + formatNumber(row.total_km || 0) + '</td>' +
+        '<td class="px-4 py-3 text-right text-sm text-slate-700">' + formatNumber(row.passenger_count || 0) + '</td>' +
+        '<td class="px-4 py-3 text-sm">' + getReportStatusBadge(row.status) + '</td>' +
+        '<td class="px-4 py-3 text-sm text-slate-700">' + escapeReportHtml(row.created_by_name) + '</td>' +
+      '</tr>';
+    }).join('');
+  }
+
+  function collectReportFilters() {
+    return {
+      startDate: document.getElementById('reportStartDate').value,
+      endDate: document.getElementById('reportEndDate').value,
+      vehicleId: document.getElementById('reportVehicle').value,
+      driverId: document.getElementById('reportDriver').value,
+      missionType: document.getElementById('reportMission').value,
+      status: document.getElementById('reportStatus').value,
+      keyword: document.getElementById('reportKeyword').value,
+      limit: 50
+    };
+  }
+
+  function clearReportFilters() {
+    ['reportStartDate', 'reportEndDate', 'reportVehicle', 'reportDriver', 'reportMission', 'reportStatus', 'reportKeyword'].forEach(function (id) {
+      document.getElementById(id).value = '';
+    });
+    loadReportData();
+  }
+
+  function renderReportVehicleOptions(rows) {
+    document.getElementById('reportVehicle').innerHTML = '<option value="">รถทั้งหมด</option>' + rows.map(function (row) {
+      return '<option value="' + escapeReportHtml(row.vehicle_id) + '">' + escapeReportHtml(row.vehicle_name) + '</option>';
+    }).join('');
+  }
+
+  function renderReportDriverOptions(rows) {
+    document.getElementById('reportDriver').innerHTML = '<option value="">คนขับทั้งหมด</option>' + rows.map(function (row) {
+      return '<option value="' + escapeReportHtml(row.driver_id) + '">' + escapeReportHtml(row.full_name) + '</option>';
+    }).join('');
+  }
+
+  function renderReportMissionOptions(sourceMissionTypes) {
+    const missionTypes = sourceMissionTypes || (window.APP_CONFIG && window.APP_CONFIG.missionTypes ? window.APP_CONFIG.missionTypes : []);
+    document.getElementById('reportMission').innerHTML = '<option value="">ภารกิจทั้งหมด</option>' + missionTypes.map(function (missionType) {
+      const missionTypeName = missionType.mission_type_name || missionType;
+      return '<option value="' + escapeReportHtml(missionTypeName) + '">' + escapeReportHtml(missionTypeName) + '</option>';
+    }).join('');
+  }
+
+  function downloadReportCsv(content, fileName) {
+    const blob = new Blob([content || ''], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName || 'sph-vehicle-usage-report.csv';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  function getReportStatusBadge(status) {
+    if (status === 'summary') {
+      return '<span class="inline-flex rounded-full px-3 py-1 text-xs font-semibold ring-1 bg-sky-50 text-sky-700 ring-sky-100">summary</span>';
+    }
+    const style = status === 'cancelled' ? 'bg-red-50 text-red-700 ring-red-100' : (status === 'in_use' ? 'bg-amber-50 text-amber-700 ring-amber-100' : 'bg-emerald-50 text-emerald-700 ring-emerald-100');
+    return '<span class="inline-flex rounded-full px-3 py-1 text-xs font-semibold ring-1 ' + style + '">' + escapeReportHtml(status) + '</span>';
+  }
+
+  function getReportToken() {
+    return localStorage.getItem('sph_vehicle_log_token') || '';
+  }
+
+  function getReportInfoText() {
+    const totalRows = Number(reportMeta.totalRows || reportRows.length || 0);
+
+    if (reportMeta.dataMode === 'summary') {
+      return 'โหมดสรุปรายเดือน แสดง ' + reportRows.length.toLocaleString('th-TH') + ' แถวสรุป จาก ' + totalRows.toLocaleString('th-TH') + ' รายการ';
+    }
+
+    if (totalRows > reportRows.length) {
+      return 'แสดง ' + reportRows.length.toLocaleString('th-TH') + ' จาก ' + totalRows.toLocaleString('th-TH') + ' รายการ';
+    }
+
+    return 'แสดง ' + reportRows.length.toLocaleString('th-TH') + ' รายการ';
+  }
+
+  function showReportError(message) {
+    Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: message, confirmButtonText: 'ตกลง' });
+  }
+
+  function escapeReportHtml(value) {
+    return String(value || '').replace(/[&<>"']/g, function (char) {
+      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' })[char];
+    });
+  }
+</script>

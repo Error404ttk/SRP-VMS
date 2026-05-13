@@ -1,0 +1,781 @@
+<div class="space-y-6">
+  <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+    <div>
+      <h1 class="text-2xl font-bold text-slate-900">จัดการข้อมูลหลัก</h1>
+      <p class="text-sm text-slate-500">รถราชการ พนักงานขับรถ หน่วยงาน ประเภทภารกิจ และสถานที่ไป</p>
+    </div>
+    <button id="masterAddBtn" type="button" class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700">
+      เพิ่มข้อมูล
+    </button>
+  </div>
+
+  <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+    <div id="masterTabs" class="flex gap-2 overflow-x-auto pb-2"></div>
+    <div class="mt-4 grid gap-3 md:grid-cols-[1fr_180px]">
+      <input id="masterSearch" type="search" class="rounded-lg border border-slate-300 px-3 py-2 text-sm" placeholder="ค้นหา">
+      <select id="masterStatusFilter" class="rounded-lg border border-slate-300 px-3 py-2 text-sm"></select>
+    </div>
+  </div>
+
+  <div id="masterTableWrap" class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"></div>
+
+  <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+    <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+      <div>
+        <h2 class="text-lg font-bold text-slate-900">เครื่องมือดูแลข้อมูล</h2>
+        <p class="text-sm text-slate-500">ตรวจรายการใช้รถที่อ้างถึงข้อมูลหลักผิดปกติ ตั้ง Archive และสร้างสรุปรายเดือน</p>
+      </div>
+      <button id="refreshToolsBtn" type="button" class="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+        รีเฟรชสถานะ
+      </button>
+    </div>
+
+    <div class="mt-5 grid gap-4 lg:grid-cols-3">
+      <div class="rounded-lg border border-slate-200 p-4">
+        <h3 class="font-semibold text-slate-900">ตรวจข้อมูลรายการใช้รถ</h3>
+        <p class="mt-1 text-sm text-slate-500">หา master data ที่หายหรือถูกปิดใช้งาน รวมถึงวันที่/เวลาผิดรูปแบบ</p>
+        <div class="mt-4 flex flex-wrap gap-2">
+          <button id="checkMasterIssuesBtn" type="button" class="rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white">ตรวจข้อมูลหลัก</button>
+          <button id="checkDateIssuesBtn" type="button" class="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700">ตรวจวันที่/เวลา</button>
+        </div>
+      </div>
+
+      <div class="rounded-lg border border-slate-200 p-4">
+        <h3 class="font-semibold text-slate-900">Archive รายการเก่า</h3>
+        <p class="mt-1 text-sm text-slate-500">ย้ายรายการที่ completed/cancelled เก่าออกจากชีตหลัก</p>
+        <label class="mt-4 block text-xs font-semibold text-slate-600" for="retentionDays">เก็บข้อมูลในชีตหลักอย่างน้อย (วัน)</label>
+        <input id="retentionDays" type="number" min="90" value="730" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+        <div class="mt-3 flex flex-wrap gap-2">
+          <button id="archiveNowBtn" type="button" class="rounded-lg bg-amber-600 px-3 py-2 text-sm font-semibold text-white">Archive ตอนนี้</button>
+          <button id="enableArchiveBtn" type="button" class="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700">เปิด schedule</button>
+          <button id="disableArchiveBtn" type="button" class="rounded-lg border border-rose-300 px-3 py-2 text-sm font-semibold text-rose-700">ปิด schedule</button>
+        </div>
+      </div>
+
+      <div class="rounded-lg border border-slate-200 p-4">
+        <h3 class="font-semibold text-slate-900">สรุปรายเดือน</h3>
+        <p class="mt-1 text-sm text-slate-500">ใช้เป็นฐานข้อมูลสรุปเมื่อรายการใช้รถมีจำนวนมาก</p>
+        <dl class="mt-4 grid grid-cols-2 gap-2 text-sm">
+          <div>
+            <dt class="text-slate-500">Usage logs</dt>
+            <dd id="summaryUsageRows" class="font-semibold text-slate-900">-</dd>
+          </div>
+          <div>
+            <dt class="text-slate-500">Summary rows</dt>
+            <dd id="summaryRows" class="font-semibold text-slate-900">-</dd>
+          </div>
+        </dl>
+        <p id="summaryUpdatedAt" class="mt-2 text-xs text-slate-500"></p>
+        <button id="rebuildSummaryBtn" type="button" class="mt-4 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white">สร้างสรุปรายเดือนใหม่</button>
+        <button id="updateBuildDateBtn" type="button" class="mt-2 rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700">อัปเดตวันที่ build</button>
+      </div>
+    </div>
+
+    <div id="toolsResult" class="mt-5 hidden overflow-hidden rounded-lg border border-slate-200"></div>
+    <div id="adminToolAudit" class="mt-5 overflow-hidden rounded-lg border border-slate-200"></div>
+
+  <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+    <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+      <div>
+        <h2 class="text-lg font-bold text-slate-900">ตั้งค่า Provider ID Login</h2>
+        <p class="text-sm text-slate-500">ใช้สำหรับ UAT/PRD OAuth Health ID และ Provider ID โดยเก็บ secret ใน ScriptProperties</p>
+      </div>
+      <div id="providerAuthStatus" class="text-sm font-semibold text-slate-500">กำลังโหลดสถานะ...</div>
+    </div>
+    <form id="providerAuthForm" class="mt-5 grid gap-4 md:grid-cols-2">
+      <label class="block">
+        <span class="text-sm font-semibold text-slate-700">Environment</span>
+        <select id="provider_env" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+          <option value="UAT">UAT</option>
+          <option value="PRD">PRD</option>
+        </select>
+      </label>
+      <label class="block">
+        <span class="text-sm font-semibold text-slate-700">Allowed HCODE</span>
+        <input id="provider_allowed_hcode" type="text" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+      </label>
+      <label class="block">
+        <span class="text-sm font-semibold text-slate-700">Health ID Client ID</span>
+        <input id="health_client_id" type="text" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+      </label>
+      <label class="block">
+        <span class="text-sm font-semibold text-slate-700">Health ID Secret</span>
+        <input id="health_client_secret" type="password" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" placeholder="เว้นว่างถ้าไม่เปลี่ยน">
+      </label>
+      <label class="block">
+        <span class="text-sm font-semibold text-slate-700">Provider ID Client ID</span>
+        <input id="provider_client_id" type="text" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+      </label>
+      <label class="block">
+        <span class="text-sm font-semibold text-slate-700">Provider ID Secret Key</span>
+        <input id="provider_secret_key" type="password" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" placeholder="เว้นว่างถ้าไม่เปลี่ยน">
+      </label>
+      <label class="block md:col-span-2">
+        <span class="text-sm font-semibold text-slate-700">Redirect URI</span>
+        <input id="provider_redirect_uri" type="text" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+      </label>
+      <label class="block md:col-span-2">
+        <span class="text-sm font-semibold text-slate-700">API Proxy URL</span>
+        <input id="provider_proxy_url" type="text" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" placeholder="เช่น https://your-server/provider-api-proxy">
+        <span class="mt-1 block text-xs text-slate-400">จำเป็นสำหรับ PRD — deploy proxy จาก provider-api-proxy/ แล้ววาง URL ที่นี่</span>
+      </label>
+      <div class="flex justify-end gap-2 md:col-span-2">
+        <button id="reloadProviderAuthBtn" type="button" class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700">โหลดค่าใหม่</button>
+        <button type="submit" class="rounded-lg bg-sky-600 px-4 py-2 text-sm font-semibold text-white">บันทึก Provider ID Config</button>
+      </div>
+    </form>
+    <div id="providerDiagnostics" class="mt-5 overflow-hidden rounded-lg border border-slate-200"></div>
+    <div class="mt-5 overflow-hidden rounded-lg border border-slate-200">
+      <div class="flex flex-col gap-2 bg-slate-50 px-4 py-3 md:flex-row md:items-center md:justify-between">
+        <div class="text-sm font-bold text-slate-800">รายการ Provider ID ที่รอผูกผู้ใช้</div>
+        <button id="reloadPendingProviderBtn" type="button" class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700">รีเฟรช</button>
+      </div>
+      <div id="pendingProviderList"></div>
+    </div>
+  </div>
+</div>
+
+<div id="masterModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/50 p-4">
+  <div class="w-full max-w-2xl rounded-xl bg-white shadow-xl">
+    <div class="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+      <h2 id="masterModalTitle" class="text-lg font-bold text-slate-900">เพิ่มข้อมูล</h2>
+      <button id="masterModalClose" type="button" class="rounded-lg px-2 py-1 text-slate-500 hover:bg-slate-100">ปิด</button>
+    </div>
+    <form id="masterForm" class="space-y-4 p-5">
+      <div id="masterFormFields" class="grid gap-4 md:grid-cols-2"></div>
+      <div class="flex justify-end gap-2 border-t border-slate-200 pt-4">
+        <button type="button" id="masterCancelBtn" class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700">ยกเลิก</button>
+        <button type="submit" class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white">บันทึก</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  (function () {
+    const state = {
+      token: '',
+      activeType: 'vehicles',
+      rows: {},
+      editingRow: null
+    };
+
+    const configs = {
+      vehicles: {
+        label: 'รถ',
+        idKey: 'vehicle_id',
+        nameKey: 'vehicle_name',
+        load: 'getVehicles',
+        create: 'createVehicle',
+        update: 'updateVehicle',
+        searchKeys: ['plate_no', 'vehicle_name', 'vehicle_type', 'brand_model', 'fuel_type', 'remark'],
+        columns: [
+          ['plate_no', 'ทะเบียน'],
+          ['vehicle_name', 'ชื่อรถ'],
+          ['vehicle_type', 'ประเภท'],
+          ['current_mileage', 'เลขไมล์'],
+          ['status', 'สถานะ']
+        ],
+        fields: [
+          { key: 'plate_no', label: 'ทะเบียนรถ', required: true },
+          { key: 'vehicle_name', label: 'ชื่อรถ', required: true },
+          { key: 'vehicle_type', label: 'ประเภทรถ' },
+          { key: 'brand_model', label: 'ยี่ห้อ/รุ่น' },
+          { key: 'fuel_type', label: 'เชื้อเพลิง' },
+          { key: 'current_mileage', label: 'เลขไมล์ปัจจุบัน', type: 'number', required: true },
+          { key: 'status', label: 'สถานะ', type: 'select', options: [['available', 'พร้อมใช้งาน'], ['in_use', 'กำลังใช้งาน'], ['repair', 'ซ่อมบำรุง'], ['inactive', 'ปิดใช้งาน']] },
+          { key: 'remark', label: 'หมายเหตุ', type: 'textarea', wide: true }
+        ]
+      },
+      drivers: {
+        label: 'คนขับ',
+        idKey: 'driver_id',
+        nameKey: 'full_name',
+        load: 'getDrivers',
+        create: 'createDriver',
+        update: 'updateDriver',
+        searchKeys: ['full_name', 'phone', 'license_no', 'remark'],
+        columns: [['full_name', 'ชื่อ-สกุล'], ['phone', 'โทรศัพท์'], ['license_no', 'ใบอนุญาต'], ['status', 'สถานะ']],
+        fields: [
+          { key: 'full_name', label: 'ชื่อ-สกุล', required: true },
+          { key: 'phone', label: 'โทรศัพท์' },
+          { key: 'license_no', label: 'เลขใบอนุญาตขับขี่' },
+          { key: 'status', label: 'สถานะ', type: 'select', options: [['active', 'ใช้งาน'], ['inactive', 'ปิดใช้งาน']] },
+          { key: 'remark', label: 'หมายเหตุ', type: 'textarea', wide: true }
+        ]
+      },
+      departments: {
+        label: 'หน่วยงาน',
+        idKey: 'department_id',
+        nameKey: 'department_name',
+        load: 'getDepartments',
+        create: 'createDepartment',
+        update: 'updateDepartment',
+        searchKeys: ['department_name', 'remark'],
+        columns: [['department_name', 'หน่วยงาน'], ['status', 'สถานะ'], ['remark', 'หมายเหตุ']],
+        fields: [
+          { key: 'department_name', label: 'ชื่อหน่วยงาน', required: true },
+          { key: 'status', label: 'สถานะ', type: 'select', options: [['active', 'ใช้งาน'], ['inactive', 'ปิดใช้งาน']] },
+          { key: 'remark', label: 'หมายเหตุ', type: 'textarea', wide: true }
+        ]
+      },
+      missionTypes: {
+        label: 'ประเภทภารกิจ',
+        idKey: 'mission_type_id',
+        nameKey: 'mission_type_name',
+        load: 'getMissionTypes',
+        create: 'createMissionType',
+        update: 'updateMissionType',
+        searchKeys: ['mission_type_name', 'remark'],
+        columns: [['mission_type_name', 'ประเภทภารกิจ'], ['status', 'สถานะ'], ['remark', 'หมายเหตุ']],
+        fields: [
+          { key: 'mission_type_name', label: 'ชื่อประเภทภารกิจ', required: true },
+          { key: 'status', label: 'สถานะ', type: 'select', options: [['active', 'ใช้งาน'], ['inactive', 'ปิดใช้งาน']] },
+          { key: 'remark', label: 'หมายเหตุ', type: 'textarea', wide: true }
+        ]
+      },
+      destinations: {
+        label: 'สถานที่ไป',
+        idKey: 'destination_id',
+        nameKey: 'destination_name',
+        load: 'getDestinations',
+        create: 'createDestination',
+        update: 'updateDestination',
+        searchKeys: ['destination_name', 'remark'],
+        columns: [['destination_name', 'สถานที่ไป'], ['status', 'สถานะ'], ['remark', 'หมายเหตุ']],
+        fields: [
+          { key: 'destination_name', label: 'ชื่อสถานที่ไป', required: true },
+          { key: 'status', label: 'สถานะ', type: 'select', options: [['active', 'ใช้งาน'], ['inactive', 'ปิดใช้งาน']] },
+          { key: 'remark', label: 'หมายเหตุ', type: 'textarea', wide: true }
+        ]
+      }
+    };
+
+    document.addEventListener('sphAuthReady', function (event) {
+      state.token = event.detail.token;
+      initMasterData();
+    });
+
+    setTimeout(function () {
+      if (!state.token && window.SPH_AUTH_CONTEXT) {
+        state.token = window.SPH_AUTH_CONTEXT.token;
+        initMasterData();
+      }
+    }, 300);
+
+    function initMasterData() {
+      renderTabs();
+      bindEvents();
+      loadCurrentType();
+      refreshSummaryStatus();
+      loadProviderAuthConfig();
+      loadPendingProviderLogins();
+    }
+
+    function bindEvents() {
+      document.getElementById('masterSearch').addEventListener('input', renderTable);
+      document.getElementById('masterStatusFilter').addEventListener('change', renderTable);
+      document.getElementById('masterAddBtn').addEventListener('click', function () { openModal(null); });
+      document.getElementById('masterModalClose').addEventListener('click', closeModal);
+      document.getElementById('masterCancelBtn').addEventListener('click', closeModal);
+      document.getElementById('masterForm').addEventListener('submit', handleSave);
+      document.getElementById('checkMasterIssuesBtn').addEventListener('click', checkMasterIssues);
+      document.getElementById('checkDateIssuesBtn').addEventListener('click', checkDateIssues);
+      document.getElementById('archiveNowBtn').addEventListener('click', archiveNow);
+      document.getElementById('enableArchiveBtn').addEventListener('click', enableArchiveSchedule);
+      document.getElementById('disableArchiveBtn').addEventListener('click', disableArchiveSchedule);
+      document.getElementById('rebuildSummaryBtn').addEventListener('click', rebuildSummary);
+      document.getElementById('updateBuildDateBtn').addEventListener('click', updateBuildDateFromAdmin);
+      document.getElementById('refreshToolsBtn').addEventListener('click', refreshSummaryStatus);
+      document.getElementById('providerAuthForm').addEventListener('submit', saveProviderAuthConfig);
+      document.getElementById('reloadProviderAuthBtn').addEventListener('click', loadProviderAuthConfig);
+      document.getElementById('reloadPendingProviderBtn').addEventListener('click', loadPendingProviderLogins);
+    }
+
+    function renderTabs() {
+      const tabs = Object.keys(configs).map(function (type) {
+        const active = type === state.activeType;
+        return '<button type="button" data-type="' + type + '" class="master-tab whitespace-nowrap rounded-lg px-4 py-2 text-sm font-semibold ' +
+          (active ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200') + '">' + configs[type].label + '</button>';
+      }).join('');
+
+      document.getElementById('masterTabs').innerHTML = tabs;
+      document.querySelectorAll('.master-tab').forEach(function (button) {
+        button.addEventListener('click', function () {
+          state.activeType = button.dataset.type;
+          document.getElementById('masterSearch').value = '';
+          renderTabs();
+          loadCurrentType();
+        });
+      });
+    }
+
+    function loadCurrentType() {
+      const config = configs[state.activeType];
+      showLoading(true);
+      callLoad(config.load, function (response) {
+        showLoading(false);
+        if (!response.success) {
+          showError(response.message);
+          return;
+        }
+        state.rows[state.activeType] = response.data || [];
+        renderStatusFilter();
+        renderTable();
+      });
+    }
+
+    function renderStatusFilter() {
+      const options = state.activeType === 'vehicles'
+        ? [['', 'ทุกสถานะ'], ['available', 'พร้อมใช้งาน'], ['in_use', 'กำลังใช้งาน'], ['repair', 'ซ่อมบำรุง'], ['inactive', 'ปิดใช้งาน']]
+        : [['', 'ทุกสถานะ'], ['active', 'ใช้งาน'], ['inactive', 'ปิดใช้งาน']];
+
+      document.getElementById('masterStatusFilter').innerHTML = options.map(function (option) {
+        return '<option value="' + option[0] + '">' + option[1] + '</option>';
+      }).join('');
+    }
+
+    function renderTable() {
+      const config = configs[state.activeType];
+      const rows = getFilteredRows(config);
+      const header = config.columns.map(function (column) {
+        return '<th class="px-4 py-3 text-left text-xs font-bold uppercase text-slate-500">' + column[1] + '</th>';
+      }).join('') + '<th class="px-4 py-3 text-right text-xs font-bold uppercase text-slate-500">จัดการ</th>';
+
+      const body = rows.length === 0
+        ? '<tr><td colspan="' + (config.columns.length + 1) + '" class="px-4 py-10 text-center text-sm text-slate-500">ไม่พบข้อมูล</td></tr>'
+        : rows.map(function (row) {
+          const cells = config.columns.map(function (column) {
+            const value = column[0] === 'status' ? statusBadge(row.status) : escapeHtml(row[column[0]]);
+            return '<td class="px-4 py-3 text-sm text-slate-700">' + value + '</td>';
+          }).join('');
+          return '<tr class="border-t border-slate-100">' + cells +
+            '<td class="px-4 py-3 text-right"><button type="button" class="edit-row rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50" data-id="' + escapeHtml(row[config.idKey]) + '">แก้ไข</button></td></tr>';
+        }).join('');
+
+      document.getElementById('masterTableWrap').innerHTML =
+        '<div class="overflow-x-auto"><table class="min-w-full divide-y divide-slate-200"><thead class="bg-slate-50"><tr>' + header +
+        '</tr></thead><tbody class="divide-y divide-slate-100 bg-white">' + body + '</tbody></table></div>' +
+        '<div class="border-t border-slate-200 px-4 py-3 text-sm text-slate-500">แสดง ' + rows.length + ' รายการ</div>';
+
+      document.querySelectorAll('.edit-row').forEach(function (button) {
+        button.addEventListener('click', function () {
+          const row = (state.rows[state.activeType] || []).find(function (item) {
+            return String(item[config.idKey]) === button.dataset.id;
+          });
+          openModal(row);
+        });
+      });
+    }
+
+    function getFilteredRows(config) {
+      const keyword = document.getElementById('masterSearch').value.trim().toLowerCase();
+      const status = document.getElementById('masterStatusFilter').value;
+
+      return (state.rows[state.activeType] || []).filter(function (row) {
+        if (status && row.status !== status) return false;
+        if (!keyword) return true;
+        return config.searchKeys.some(function (key) {
+          return String(row[key] || '').toLowerCase().indexOf(keyword) !== -1;
+        });
+      });
+    }
+
+    function openModal(row) {
+      const config = configs[state.activeType];
+      state.editingRow = row;
+      document.getElementById('masterModalTitle').textContent = (row ? 'แก้ไข' : 'เพิ่ม') + config.label;
+      document.getElementById('masterFormFields').innerHTML = config.fields.map(function (field) {
+        const value = row ? row[field.key] : defaultFieldValue(field);
+        const required = field.required ? ' required' : '';
+        const wide = field.wide ? ' md:col-span-2' : '';
+
+        if (field.type === 'select') {
+          return '<label class="block' + wide + '"><span class="text-sm font-semibold text-slate-700">' + field.label + '</span>' +
+            '<select name="' + field.key + '" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"' + required + '>' +
+            field.options.map(function (option) {
+              return '<option value="' + option[0] + '"' + (String(value) === option[0] ? ' selected' : '') + '>' + option[1] + '</option>';
+            }).join('') + '</select></label>';
+        }
+
+        if (field.type === 'textarea') {
+          return '<label class="block' + wide + '"><span class="text-sm font-semibold text-slate-700">' + field.label + '</span>' +
+            '<textarea name="' + field.key + '" rows="3" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">' + escapeHtml(value) + '</textarea></label>';
+        }
+
+        return '<label class="block' + wide + '"><span class="text-sm font-semibold text-slate-700">' + field.label + '</span>' +
+          '<input name="' + field.key + '" type="' + (field.type || 'text') + '" value="' + escapeHtml(value) + '" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"' + required + '></label>';
+      }).join('');
+      document.getElementById('masterModal').classList.remove('hidden');
+      document.getElementById('masterModal').classList.add('flex');
+    }
+
+    function closeModal() {
+      document.getElementById('masterModal').classList.add('hidden');
+      document.getElementById('masterModal').classList.remove('flex');
+      state.editingRow = null;
+    }
+
+    function handleSave(event) {
+      event.preventDefault();
+      const config = configs[state.activeType];
+      const formData = new FormData(event.target);
+      const payload = {};
+      config.fields.forEach(function (field) {
+        payload[field.key] = formData.get(field.key) || '';
+      });
+
+      showLoading(true);
+      callSave(config, payload, function (response) {
+        showLoading(false);
+        if (!response.success) {
+          showError(response.message);
+          return;
+        }
+        closeModal();
+        Swal.fire({ icon: 'success', title: 'บันทึกสำเร็จ', text: response.message, confirmButtonText: 'ตกลง' });
+        loadCurrentType();
+      });
+    }
+
+    function checkMasterIssues() {
+      showLoading(true);
+      runServerFunction('getUsageMasterDataIssues', [state.token], function (response) {
+        showLoading(false);
+        if (!response.success) return showError(response.message);
+        renderIssues('ปัญหาข้อมูลหลักในรายการใช้รถ', response.data.issues || [], response.data.issueCount || 0);
+      });
+    }
+
+    function checkDateIssues() {
+      showLoading(true);
+      runServerFunction('getUsageDateTimeIssues', [state.token], function (response) {
+        showLoading(false);
+        if (!response.success) return showError(response.message);
+        renderIssues('ปัญหาวันที่/เวลาในรายการใช้รถ', response.data.issues || [], response.data.issueCount || 0);
+      });
+    }
+
+    function archiveNow() {
+      const days = getRetentionDays();
+      Swal.fire({
+        icon: 'warning',
+        title: 'ยืนยัน Archive',
+        text: 'ระบบจะย้ายรายการเก่ากว่า ' + days + ' วันออกจากชีตหลัก',
+        showCancelButton: true,
+        confirmButtonText: 'ดำเนินการ',
+        cancelButtonText: 'ยกเลิก'
+      }).then(function (result) {
+        if (!result.isConfirmed) return;
+        showLoading(true);
+        runServerFunction('archiveOldUsageLogs', [days, state.token], function (response) {
+          showLoading(false);
+          if (!response.success) return showError(response.message);
+          Swal.fire({ icon: 'success', title: 'Archive สำเร็จ', text: 'ย้ายข้อมูล ' + response.data.archivedRows + ' รายการ', confirmButtonText: 'ตกลง' });
+          refreshAdminToolAudit();
+        });
+      });
+    }
+
+    function enableArchiveSchedule() {
+      showLoading(true);
+      runServerFunction('setupUsageArchiveSchedule', [getRetentionDays(), state.token], function (response) {
+        showLoading(false);
+        if (!response.success) return showError(response.message);
+        Swal.fire({ icon: 'success', title: 'เปิด schedule แล้ว', text: response.message, confirmButtonText: 'ตกลง' });
+        refreshAdminToolAudit();
+      });
+    }
+
+    function disableArchiveSchedule() {
+      showLoading(true);
+      runServerFunction('removeUsageArchiveSchedule', [state.token], function (response) {
+        showLoading(false);
+        if (!response.success) return showError(response.message);
+        Swal.fire({ icon: 'success', title: 'ปิด schedule แล้ว', text: response.message, confirmButtonText: 'ตกลง' });
+        refreshAdminToolAudit();
+      });
+    }
+
+    function rebuildSummary() {
+      showLoading(true);
+      runServerFunction('rebuildUsageMonthlySummary', [state.token], function (response) {
+        showLoading(false);
+        if (!response.success) return showError(response.message);
+        refreshSummaryStatus();
+        Swal.fire({ icon: 'success', title: 'สร้างสรุปสำเร็จ', text: 'สร้างสรุป ' + response.data.rowCount + ' แถว', confirmButtonText: 'ตกลง' });
+        refreshAdminToolAudit();
+      });
+    }
+
+    function refreshSummaryStatus() {
+      runServerFunction('getUsageSummaryStatus', [state.token], function (response) {
+        if (!response.success) return;
+        document.getElementById('summaryUsageRows').textContent = formatNumber(response.data.usageRowCount);
+        document.getElementById('summaryRows').textContent = formatNumber(response.data.summaryRowCount);
+        document.getElementById('summaryUpdatedAt').textContent = response.data.latestSummaryUpdate ? 'อัปเดตล่าสุด: ' + response.data.latestSummaryUpdate : 'ยังไม่มีสรุปรายเดือน';
+        refreshAdminToolAudit();
+      });
+    }
+
+    function updateBuildDateFromAdmin() {
+      showLoading(true);
+      runServerFunction('updateBuildDate', [state.token], function (response) {
+        showLoading(false);
+        if (!response.success) return showError(response.message);
+        Swal.fire({ icon: 'success', title: 'อัปเดตวันที่ build แล้ว', text: response.data.buildDate, confirmButtonText: 'ตกลง' });
+        refreshAdminToolAudit();
+      });
+    }
+
+    function refreshAdminToolAudit() {
+      runServerFunction('getRecentAdminToolAuditLogs', [state.token], function (response) {
+        if (!response.success) return;
+        renderAdminToolAudit(response.data || []);
+      });
+    }
+
+    function renderAdminToolAudit(rows) {
+      const html = rows.length === 0
+        ? '<div class="px-4 py-4 text-sm text-slate-500">ยังไม่มีประวัติการใช้งานเครื่องมือผู้ดูแลระบบ</div>'
+        : rows.map(function (row) {
+          return '<div class="border-t border-slate-100 px-4 py-3 text-sm">' +
+            '<div class="font-semibold text-slate-900">' + escapeHtml(row.action) + '</div>' +
+            '<div class="mt-1 text-slate-600">' + escapeHtml(row.detail) + '</div>' +
+            '<div class="mt-1 text-xs text-slate-400">' + escapeHtml(row.timestamp) + ' โดย ' + escapeHtml(row.full_name || row.username) + '</div>' +
+          '</div>';
+        }).join('');
+
+      document.getElementById('adminToolAudit').innerHTML =
+        '<div class="bg-slate-50 px-4 py-3 text-sm font-bold text-slate-800">ประวัติเครื่องมือผู้ดูแลระบบล่าสุด</div>' + html;
+    }
+
+    function loadProviderAuthConfig() {
+      runServerFunction('getProviderAuthSettings', [state.token], function (response) {
+        if (!response.success) {
+          document.getElementById('providerAuthStatus').textContent = response.message;
+          return;
+        }
+
+        const data = response.data || {};
+        document.getElementById('provider_env').value = data.env || 'UAT';
+        document.getElementById('provider_allowed_hcode').value = data.allowedHcode || '';
+        document.getElementById('health_client_id').value = data.healthClientId || '';
+        document.getElementById('provider_client_id').value = data.providerClientId || '';
+        document.getElementById('provider_redirect_uri').value = data.redirectUri || '';
+        document.getElementById('provider_proxy_url').value = data.proxyUrl || '';
+        document.getElementById('health_client_secret').value = '';
+        document.getElementById('provider_secret_key').value = '';
+        document.getElementById('health_client_secret').placeholder = data.healthClientSecretSet ? 'บันทึกแล้ว - เว้นว่างถ้าไม่เปลี่ยน' : 'ยังไม่ได้ตั้งค่า';
+        document.getElementById('provider_secret_key').placeholder = data.providerSecretKeySet ? 'บันทึกแล้ว - เว้นว่างถ้าไม่เปลี่ยน' : 'ยังไม่ได้ตั้งค่า';
+        document.getElementById('providerAuthStatus').textContent = data.configured ? 'พร้อมใช้งาน' : 'ยังตั้งค่าไม่ครบ';
+        loadProviderDiagnostics();
+      });
+    }
+
+    function saveProviderAuthConfig(event) {
+      event.preventDefault();
+      const payload = {
+        env: document.getElementById('provider_env').value,
+        allowedHcode: document.getElementById('provider_allowed_hcode').value.trim(),
+        healthClientId: document.getElementById('health_client_id').value.trim(),
+        healthClientSecret: document.getElementById('health_client_secret').value,
+        providerClientId: document.getElementById('provider_client_id').value.trim(),
+        providerSecretKey: document.getElementById('provider_secret_key').value,
+        redirectUri: document.getElementById('provider_redirect_uri').value.trim(),
+        proxyUrl: document.getElementById('provider_proxy_url').value.trim()
+      };
+
+      showLoading(true);
+      runServerFunction('saveProviderAuthSettings', [payload, state.token], function (response) {
+        showLoading(false);
+        if (!response.success) return showError(response.message);
+        Swal.fire({ icon: 'success', title: 'บันทึกการตั้งค่าแล้ว', text: 'Provider ID Login config ถูกบันทึกใน ScriptProperties', confirmButtonText: 'ตกลง' });
+        loadProviderAuthConfig();
+        refreshAdminToolAudit();
+      });
+    }
+
+    function loadProviderDiagnostics() {
+      runServerFunction('getProviderAuthDiagnostics', [state.token], function (response) {
+        if (!response.success) {
+          document.getElementById('providerDiagnostics').innerHTML = '<div class="p-4 text-sm text-rose-700">' + escapeHtml(response.message) + '</div>';
+          return;
+        }
+
+        const data = response.data || {};
+        const rows = [
+          ['สถานะ', data.configured ? 'พร้อมใช้งาน' : 'ยังตั้งค่าไม่ครบ'],
+          ['Environment', data.env || '-'],
+          ['Health Client ID', data.healthClientId || '-'],
+          ['Health Secret', data.healthClientSecretSet ? 'บันทึกแล้ว' : 'ยังไม่ได้ตั้งค่า'],
+          ['Provider Client ID', data.providerClientId || '-'],
+          ['Provider Secret', data.providerSecretKeySet ? 'บันทึกแล้ว' : 'ยังไม่ได้ตั้งค่า'],
+          ['Allowed HCODE', data.allowedHcode || '-'],
+          ['Redirect URI', data.redirectUri || '-'],
+          ['API Proxy URL', data.proxyUrl || '-'],
+          ['Health Token Endpoint', data.healthTokenEndpoint || '-'],
+          ['Provider Token Endpoint', data.providerTokenEndpoint || '-'],
+          ['Fetch Mode', data.fetchMode || '-']
+        ];
+
+        document.getElementById('providerDiagnostics').innerHTML =
+          '<div class="bg-slate-50 px-4 py-3 text-sm font-bold text-slate-800">Diagnostic Provider Config</div>' +
+          rows.map(function (row) {
+            return '<div class="grid gap-2 border-t border-slate-100 px-4 py-2 text-sm md:grid-cols-[180px_1fr]">' +
+              '<div class="font-semibold text-slate-600">' + escapeHtml(row[0]) + '</div>' +
+              '<div class="break-all text-slate-800">' + escapeHtml(row[1]) + '</div>' +
+            '</div>';
+          }).join('');
+      });
+    }
+
+    function loadPendingProviderLogins() {
+      runServerFunction('getPendingProviderLogins', [state.token], function (pendingResponse) {
+        if (!pendingResponse.success) {
+          document.getElementById('pendingProviderList').innerHTML = '<div class="p-4 text-sm text-rose-700">' + escapeHtml(pendingResponse.message) + '</div>';
+          return;
+        }
+
+        runServerFunction('getUsers', [state.token], function (usersResponse) {
+          renderPendingProviderLogins(pendingResponse.data || [], usersResponse.success ? usersResponse.data || [] : []);
+        });
+      });
+    }
+
+    function renderPendingProviderLogins(rows, users) {
+      if (rows.length === 0) {
+        document.getElementById('pendingProviderList').innerHTML = '<div class="p-4 text-sm text-slate-500">ยังไม่มีรายการรอผูกผู้ใช้</div>';
+        return;
+      }
+
+      const userOptions = users.filter(function (user) {
+        return user.status === 'active';
+      }).map(function (user) {
+        return '<option value="' + escapeHtml(user.user_id) + '">' + escapeHtml(user.full_name + ' (' + user.username + ')') + '</option>';
+      }).join('');
+
+      document.getElementById('pendingProviderList').innerHTML = rows.map(function (row) {
+        return '<div class="border-t border-slate-100 p-4">' +
+          '<div class="grid gap-2 text-sm md:grid-cols-2">' +
+            '<div><span class="font-semibold text-slate-600">ชื่อ:</span> ' + escapeHtml(row.provider_name || '-') + '</div>' +
+            '<div><span class="font-semibold text-slate-600">HCODE:</span> ' + escapeHtml(row.hcode || '-') + ' ' + escapeHtml(row.hname_th || '') + '</div>' +
+            '<div><span class="font-semibold text-slate-600">Provider ID:</span> ' + escapeHtml(row.provider_id || '-') + '</div>' +
+            '<div><span class="font-semibold text-slate-600">Hash CID:</span> ' + escapeHtml(row.hash_cid ? row.hash_cid.slice(0, 10) + '...' + row.hash_cid.slice(-6) : '-') + '</div>' +
+            '<div><span class="font-semibold text-slate-600">ตำแหน่ง:</span> ' + escapeHtml(row.position || '-') + '</div>' +
+            '<div><span class="font-semibold text-slate-600">พบล่าสุด:</span> ' + escapeHtml(row.last_seen_at || '-') + '</div>' +
+          '</div>' +
+          '<div class="mt-3 flex flex-col gap-2 md:flex-row">' +
+            '<select data-pending-user="' + escapeHtml(row.pending_id) + '" class="rounded-lg border border-slate-300 px-3 py-2 text-sm md:flex-1"><option value="">เลือกผู้ใช้ที่จะผูก</option>' + userOptions + '</select>' +
+            '<button type="button" data-approve-pending="' + escapeHtml(row.pending_id) + '" class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white">อนุมัติและผูกผู้ใช้</button>' +
+          '</div>' +
+        '</div>';
+      }).join('');
+
+      document.querySelectorAll('[data-approve-pending]').forEach(function (button) {
+        button.addEventListener('click', function () {
+          const pendingId = button.dataset.approvePending;
+          const select = document.querySelector('[data-pending-user="' + pendingId + '"]');
+          approvePendingProviderLogin(pendingId, select ? select.value : '');
+        });
+      });
+    }
+
+    function approvePendingProviderLogin(pendingId, userId) {
+      if (!userId) {
+        Swal.fire({ icon: 'warning', title: 'ยังไม่ได้เลือกผู้ใช้', text: 'กรุณาเลือกผู้ใช้ที่จะผูก Provider ID', confirmButtonText: 'ตกลง' });
+        return;
+      }
+
+      showLoading(true);
+      runServerFunction('approvePendingProviderLogin', [pendingId, userId, state.token], function (response) {
+        showLoading(false);
+        if (!response.success) return showError(response.message);
+        Swal.fire({ icon: 'success', title: 'ผูกผู้ใช้แล้ว', text: response.message, confirmButtonText: 'ตกลง' });
+        loadPendingProviderLogins();
+        refreshAdminToolAudit();
+      });
+    }
+
+
+
+    function renderIssues(title, issues, count) {
+      const html = issues.length === 0
+        ? '<div class="p-5 text-center text-sm text-emerald-700">ไม่พบปัญหา</div>'
+        : '<div class="overflow-x-auto"><table class="min-w-full divide-y divide-slate-200"><thead class="bg-slate-50"><tr>' +
+          '<th class="px-4 py-3 text-left text-xs font-bold uppercase text-slate-500">แถว</th>' +
+          '<th class="px-4 py-3 text-left text-xs font-bold uppercase text-slate-500">วันที่</th>' +
+          '<th class="px-4 py-3 text-left text-xs font-bold uppercase text-slate-500">ช่อง</th>' +
+          '<th class="px-4 py-3 text-left text-xs font-bold uppercase text-slate-500">ค่า</th>' +
+          '<th class="px-4 py-3 text-left text-xs font-bold uppercase text-slate-500">ปัญหา</th></tr></thead><tbody>' +
+          issues.map(function (issue) {
+            return '<tr class="border-t border-slate-100"><td class="px-4 py-3 text-sm">' + issue.rowNumber + '</td>' +
+              '<td class="px-4 py-3 text-sm">' + formatThaiDate(issue.usageDate || '') + '</td>' +
+              '<td class="px-4 py-3 text-sm">' + escapeHtml(issue.field) + '</td>' +
+              '<td class="px-4 py-3 text-sm">' + escapeHtml(issue.value) + '</td>' +
+              '<td class="px-4 py-3 text-sm text-rose-700">' + escapeHtml(issue.message) + '</td></tr>';
+          }).join('') + '</tbody></table></div>';
+
+      const wrap = document.getElementById('toolsResult');
+      wrap.innerHTML = '<div class="border-b border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-900">' + title + ' (' + count + ' รายการ)</div>' + html;
+      wrap.classList.remove('hidden');
+    }
+
+    function callLoad(method, callback) {
+      runServerFunction(method, [state.token], callback);
+    }
+
+    function callSave(config, payload, callback) {
+      if (state.editingRow) {
+        runServerFunction(config.update, [state.editingRow[config.idKey], payload, state.token], callback);
+        return;
+      }
+      runServerFunction(config.create, [payload, state.token], callback);
+    }
+
+    function defaultFieldValue(field) {
+      if (field.key === 'status') {
+        return state.activeType === 'vehicles' ? 'available' : 'active';
+      }
+      if (field.type === 'number') {
+        return 0;
+      }
+      return '';
+    }
+
+    function getRetentionDays() {
+      return Math.max(Number(document.getElementById('retentionDays').value) || 730, 90);
+    }
+
+    function statusBadge(status) {
+      const labels = {
+        active: 'ใช้งาน',
+        inactive: 'ปิดใช้งาน',
+        available: 'พร้อมใช้งาน',
+        in_use: 'กำลังใช้งาน',
+        repair: 'ซ่อมบำรุง'
+      };
+      const colors = {
+        active: 'bg-emerald-50 text-emerald-700',
+        available: 'bg-emerald-50 text-emerald-700',
+        in_use: 'bg-blue-50 text-blue-700',
+        repair: 'bg-amber-50 text-amber-700',
+        inactive: 'bg-slate-100 text-slate-600'
+      };
+      return '<span class="inline-flex rounded-full px-2 py-1 text-xs font-semibold ' + (colors[status] || 'bg-slate-100 text-slate-600') + '">' + (labels[status] || status || '-') + '</span>';
+    }
+
+    function showError(message) {
+      Swal.fire({ icon: 'error', title: 'ดำเนินการไม่สำเร็จ', text: message || 'เกิดข้อผิดพลาด', confirmButtonText: 'ตกลง' });
+    }
+
+    function escapeHtml(value) {
+      return String(value === undefined || value === null ? '' : value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+  })();
+</script>

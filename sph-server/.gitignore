@@ -1,0 +1,24 @@
+# Environment & Secrets
+.env
+.env.local
+.env.production
+
+# Service Account Keys
+gen-lang-client-*.json
+*-service-account*.json
+*-credentials*.json
+
+# Dependencies
+node_modules/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+server.log
+
+# IDE
+.vscode/
+.idea/

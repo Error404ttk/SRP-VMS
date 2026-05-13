@@ -1,0 +1,658 @@
+<section class="mx-auto max-w-7xl space-y-5">
+  <div>
+    <p class="text-sm font-semibold text-sky-600">รายการใช้รถ</p>
+    <h2 class="mt-1 text-2xl font-bold text-slate-950">รายการใช้รถราชการ</h2>
+  </div>
+
+  <div class="page-card grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-4">
+    <input id="usageFilterStart" type="date" class="usage-list-input">
+    <input id="usageFilterEnd" type="date" class="usage-list-input">
+    <select id="usageFilterVehicle" class="usage-list-input"><option value="">รถทั้งหมด</option></select>
+    <select id="usageFilterDriver" class="usage-list-input"><option value="">คนขับทั้งหมด</option></select>
+    <select id="usageFilterMission" class="usage-list-input"><option value="">ภารกิจทั้งหมด</option></select>
+    <select id="usageFilterStatus" class="usage-list-input">
+      <option value="">สถานะทั้งหมด</option>
+      <option value="in_use">in_use</option>
+      <option value="completed">completed</option>
+      <option value="cancelled">cancelled</option>
+    </select>
+    <input id="usageFilterKeyword" type="text" class="usage-list-input lg:col-span-2" placeholder="ค้นหาคำ">
+    <div class="flex gap-2 sm:col-span-2 lg:col-span-4">
+      <button type="button" onclick="loadUsageLogs()" class="rounded-xl bg-sky-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-sky-700">ค้นหา</button>
+      <button type="button" onclick="clearUsageFilters()" class="rounded-xl border border-slate-200 px-5 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">ล้างตัวกรอง</button>
+    </div>
+  </div>
+
+  <div class="page-card overflow-hidden">
+    <div id="usageListInfo" class="border-b border-slate-100 px-4 py-3 text-sm text-slate-500">กำลังโหลดรายการใช้รถ...</div>
+    <div class="overflow-x-auto">
+      <table class="min-w-full divide-y divide-slate-200">
+        <thead class="bg-slate-50">
+          <tr>
+            <th class="px-4 py-3 text-left text-xs font-bold uppercase text-slate-500">วันที่</th>
+            <th class="px-4 py-3 text-left text-xs font-bold uppercase text-slate-500">เวลาออก-กลับ</th>
+            <th class="px-4 py-3 text-left text-xs font-bold uppercase text-slate-500">รถ</th>
+            <th class="px-4 py-3 text-left text-xs font-bold uppercase text-slate-500">ทะเบียน</th>
+            <th class="px-4 py-3 text-left text-xs font-bold uppercase text-slate-500">พนักงานขับรถ</th>
+            <th class="px-4 py-3 text-left text-xs font-bold uppercase text-slate-500">ภารกิจ</th>
+            <th class="px-4 py-3 text-left text-xs font-bold uppercase text-slate-500">สถานที่ไป</th>
+            <th class="px-4 py-3 text-left text-xs font-bold uppercase text-slate-500">ผู้ขอใช้</th>
+            <th class="px-4 py-3 text-left text-xs font-bold uppercase text-slate-500">หน่วยงาน</th>
+            <th class="px-4 py-3 text-right text-xs font-bold uppercase text-slate-500">ระยะทาง</th>
+            <th class="px-4 py-3 text-left text-xs font-bold uppercase text-slate-500">สถานะ</th>
+            <th class="px-4 py-3 text-left text-xs font-bold uppercase text-slate-500">ผู้บันทึก</th>
+            <th class="px-4 py-3 text-right text-xs font-bold uppercase text-slate-500">จัดการ</th>
+          </tr>
+        </thead>
+        <tbody id="usageListBody" class="divide-y divide-slate-100 bg-white"></tbody>
+      </table>
+    </div>
+    <div id="usageListEmpty" class="hidden px-6 py-10 text-center text-slate-500">ไม่พบข้อมูลรายการใช้รถ</div>
+    <div class="border-t border-slate-100 px-4 py-3 text-center">
+      <button id="usageLoadMoreButton" type="button" onclick="loadMoreUsageLogs()" class="hidden rounded-xl border border-slate-200 px-5 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">โหลดเพิ่ม</button>
+    </div>
+  </div>
+</section>
+
+<div id="usageEditModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/50 px-4">
+  <div class="max-h-[90vh] w-full max-w-5xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
+    <div class="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+      <div>
+        <h3 id="usageEditModalTitle" class="text-lg font-bold text-slate-950">แก้ไขรายการใช้รถ</h3>
+        <p id="usageEditModalDescription" class="mt-1 text-sm text-slate-500">ตรวจสอบและแก้ไขรายละเอียดรายการใช้รถ</p>
+      </div>
+      <button onclick="closeUsageEditModal()" class="rounded-lg px-3 py-1 text-xl text-slate-500 hover:bg-slate-100">&times;</button>
+    </div>
+    <form id="usageEditForm" class="grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-3">
+      <input type="hidden" id="edit_log_id">
+      <input type="hidden" id="edit_mode">
+      <div id="usageCloseSummary" class="hidden rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 sm:col-span-2 lg:col-span-3"></div>
+      <label class="usage-list-field">
+        <span>วันที่ใช้รถ</span>
+        <input id="edit_usage_date" type="date" class="usage-list-input">
+      </label>
+      <label class="usage-list-field">
+        <span>เวลาออก</span>
+        <input id="edit_start_time" type="time" class="usage-list-input">
+      </label>
+      <label class="usage-list-field">
+        <span>เวลากลับ</span>
+        <input id="edit_end_time" type="time" class="usage-list-input">
+      </label>
+      <label class="usage-list-field lg:col-span-2">
+        <span>รถที่ใช้</span>
+        <select id="edit_vehicle_id" class="usage-list-input"></select>
+      </label>
+      <label class="usage-list-field">
+        <span>พนักงานขับรถ</span>
+        <select id="edit_driver_id" class="usage-list-input"></select>
+      </label>
+      <label class="usage-list-field">
+        <span>ประเภทภารกิจ</span>
+        <select id="edit_mission_type" class="usage-list-input"></select>
+      </label>
+      <label class="usage-list-field lg:col-span-2">
+        <span>สถานที่ไป</span>
+        <select id="edit_destination" class="usage-list-input"></select>
+      </label>
+      <label class="usage-list-field">
+        <span>ผู้ขอใช้รถ</span>
+        <input id="edit_requester_name" type="text" class="usage-list-input">
+      </label>
+      <label class="usage-list-field">
+        <span>หน่วยงานผู้ขอใช้รถ</span>
+        <select id="edit_requester_department" class="usage-list-input"></select>
+      </label>
+      <label class="usage-list-field">
+        <span>เลขไมล์ก่อนออก</span>
+        <input id="edit_start_mileage" type="number" min="0" step="1" class="usage-list-input">
+      </label>
+      <label class="usage-list-field">
+        <span>เลขไมล์หลังกลับ</span>
+        <input id="edit_end_mileage" type="number" min="0" step="1" class="usage-list-input">
+      </label>
+      <label class="usage-list-field">
+        <span>จำนวนผู้โดยสาร</span>
+        <input id="edit_passenger_count" type="number" min="0" step="1" class="usage-list-input">
+      </label>
+      <label class="usage-list-field sm:col-span-2 lg:col-span-3">
+        <span>หมายเหตุ</span>
+        <textarea id="edit_note" rows="3" class="usage-list-input min-h-24"></textarea>
+      </label>
+      <div class="flex justify-end gap-3 border-t border-slate-100 pt-4 sm:col-span-2 lg:col-span-3">
+        <button type="button" onclick="closeUsageEditModal()" class="rounded-xl border border-slate-200 px-5 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">ยกเลิก</button>
+        <button id="usageEditSubmitButton" type="submit" class="rounded-xl bg-sky-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-sky-700">บันทึก</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<style>
+  .usage-list-input {
+    width: 100%;
+    border-radius: 0.75rem;
+    border: 1px solid rgb(226 232 240);
+    background: rgb(248 250 252);
+    padding: 0.7rem 0.9rem;
+    outline: none;
+  }
+
+  .usage-list-input:focus {
+    border-color: rgb(56 189 248);
+    background: white;
+    box-shadow: 0 0 0 4px rgb(224 242 254);
+  }
+
+  .usage-list-field {
+    display: block;
+  }
+
+  .usage-list-field > span {
+    margin-bottom: 0.25rem;
+    display: block;
+    font-size: 0.875rem;
+    font-weight: 700;
+    color: rgb(51 65 85);
+  }
+
+  .usage-list-input:disabled {
+    cursor: not-allowed;
+    background: rgb(241 245 249);
+    color: rgb(100 116 139);
+  }
+</style>
+
+<script>
+  let usageRows = [];
+  let usageRowsMeta = {
+    totalRows: 0,
+    limit: 20,
+    offset: 0
+  };
+  let usageListVehicles = [];
+  let usageListDrivers = [];
+  let usageListDepartments = [];
+  let usageListDestinations = [];
+  let usageListInitialized = false;
+
+  document.addEventListener('sphAuthReady', initUsageList);
+  document.addEventListener('DOMContentLoaded', function () {
+    setTimeout(initUsageList, 300);
+    setTimeout(initUsageList, 1000);
+  });
+
+  function initUsageList() {
+    if (usageListInitialized || window.CURRENT_PAGE !== 'usage-list') return;
+    if (!getUsageListToken()) {
+      document.getElementById('usageListInfo').textContent = 'Session หมดอายุ กรุณาเข้าสู่ระบบใหม่';
+      return;
+    }
+
+    usageListInitialized = true;
+    document.getElementById('usageEditForm').addEventListener('submit', submitUsageEditForm);
+    bindUsageListActions();
+    loadUsageListOptions();
+  }
+
+  function bindUsageListActions() {
+    document.getElementById('usageListBody').addEventListener('click', function (event) {
+      const button = event.target.closest('[data-action]');
+      if (!button) return;
+      if (button.dataset.action === 'view') viewUsageDetail(button.dataset.logId);
+      if (button.dataset.action === 'edit') openUsageEditModal(button.dataset.logId);
+      if (button.dataset.action === 'cancel') cancelUsage(button.dataset.logId);
+    });
+  }
+
+  function loadUsageListOptions() {
+    const token = getUsageListToken();
+    showLoading(true);
+    google.script.run
+      .withSuccessHandler(function (response) {
+        showLoading(false);
+        if (!response || !response.success) {
+          showUsageListError(response ? response.message : 'ไม่สามารถโหลดหน้ารายการใช้รถได้');
+          return;
+        }
+
+        usageListVehicles = response.data && response.data.vehicles ? response.data.vehicles : [];
+        usageListDrivers = response.data && response.data.drivers ? response.data.drivers : [];
+        usageListDepartments = response.data && response.data.departments ? response.data.departments : [];
+        usageListDestinations = response.data && response.data.destinations ? response.data.destinations : [];
+        renderUsageMissionOptions(response.data && response.data.missionTypes ? response.data.missionTypes : null);
+        renderUsageVehicleFilters();
+        renderUsageDriverFilters();
+        renderUsageDepartmentOptions();
+        renderUsageDestinationOptions();
+        applyUsageLogResponse(response.data && response.data.logs ? response.data.logs : {});
+      })
+      .withFailureHandler(function (error) {
+        showLoading(false);
+        showUsageListError(error.message || 'ไม่สามารถโหลดหน้ารายการใช้รถได้');
+      })
+      .getUsageListInitialData(getUsageListFilters(0), token);
+  }
+
+  function loadUsageLogs(isLoadMore) {
+    const token = getUsageListToken();
+    const offset = isLoadMore ? usageRows.length : 0;
+    const filters = getUsageListFilters(offset);
+
+    document.getElementById('usageListInfo').textContent = 'กำลังโหลดรายการใช้รถ...';
+    showLoading(true);
+    google.script.run
+      .withSuccessHandler(function (response) {
+        showLoading(false);
+        if (!response || !response.success) {
+          document.getElementById('usageListInfo').textContent = response ? response.message : 'ไม่สามารถโหลดรายการใช้รถได้';
+          showUsageListError(response ? response.message : 'ไม่สามารถโหลดรายการใช้รถได้');
+          return;
+        }
+        applyUsageLogResponse(response.data || {}, isLoadMore);
+      })
+      .withFailureHandler(function (error) {
+        showLoading(false);
+        document.getElementById('usageListInfo').textContent = error.message || 'ไม่สามารถโหลดรายการใช้รถได้';
+        showUsageListError(error.message || 'ไม่สามารถโหลดรายการใช้รถได้');
+      })
+      .getUsageLogs(filters, token);
+  }
+
+  function loadMoreUsageLogs() {
+    loadUsageLogs(true);
+  }
+
+  function getUsageListFilters(offset) {
+    return {
+      startDate: document.getElementById('usageFilterStart').value,
+      endDate: document.getElementById('usageFilterEnd').value,
+      vehicleId: document.getElementById('usageFilterVehicle').value,
+      driverId: document.getElementById('usageFilterDriver').value,
+      missionType: document.getElementById('usageFilterMission').value,
+      status: document.getElementById('usageFilterStatus').value,
+      keyword: document.getElementById('usageFilterKeyword').value,
+      limit: 20,
+      offset: offset
+    };
+  }
+
+  function applyUsageLogResponse(data, isLoadMore) {
+    const rows = Array.isArray(data) ? data : (data && data.rows ? data.rows : []);
+    usageRows = isLoadMore ? usageRows.concat(rows) : rows;
+    usageRowsMeta = Array.isArray(data) ? { totalRows: usageRows.length, limit: 20, offset: 0 } : (data || usageRowsMeta);
+    document.getElementById('usageListInfo').textContent = getUsageListInfoText();
+    renderUsageListTable();
+  }
+
+  function renderUsageListTable() {
+    document.getElementById('usageListEmpty').classList.toggle('hidden', usageRows.length > 0);
+    document.getElementById('usageLoadMoreButton').classList.toggle('hidden', usageRows.length >= Number(usageRowsMeta.totalRows || usageRows.length));
+    document.getElementById('usageListBody').innerHTML = usageRows.map(function (row) {
+      return '<tr class="hover:bg-slate-50">' +
+        '<td class="px-4 py-3 text-sm text-slate-700">' + escapeUsageListHtml(formatThaiDate(row.usage_date)) + '</td>' +
+        '<td class="px-4 py-3 text-sm text-slate-700">' + escapeUsageListHtml(formatTimeRange(row.start_time, row.end_time)) + '</td>' +
+        '<td class="px-4 py-3 text-sm font-semibold text-slate-900">' + escapeUsageListHtml(row.vehicle_name) + '</td>' +
+        '<td class="px-4 py-3 text-sm text-slate-600">' + escapeUsageListHtml(row.plate_no) + '</td>' +
+        '<td class="px-4 py-3 text-sm text-slate-700">' + escapeUsageListHtml(row.driver_name) + '</td>' +
+        '<td class="px-4 py-3 text-sm text-slate-700">' + escapeUsageListHtml(row.mission_type) + '</td>' +
+        '<td class="px-4 py-3 text-sm text-slate-700">' + escapeUsageListHtml(row.destination) + '</td>' +
+        '<td class="px-4 py-3 text-sm text-slate-700">' + escapeUsageListHtml(row.requester_name) + '</td>' +
+        '<td class="px-4 py-3 text-sm text-slate-700">' + escapeUsageListHtml(row.requester_department) + '</td>' +
+        '<td class="px-4 py-3 text-right text-sm text-slate-700">' + Number(row.total_km || 0).toLocaleString('th-TH') + '</td>' +
+        '<td class="px-4 py-3 text-sm">' + getUsageStatusBadge(row.status) + '</td>' +
+        '<td class="px-4 py-3 text-sm text-slate-700">' + escapeUsageListHtml(row.created_by_name) + '</td>' +
+        '<td class="px-4 py-3 text-right">' + renderUsageActions(row) + '</td>' +
+      '</tr>';
+    }).join('');
+  }
+
+  function renderUsageActions(row) {
+    const disabled = row.status === 'cancelled';
+    const editLabel = row.status === 'in_use' ? 'ปิดงาน' : 'แก้ไข';
+    return '<div class="flex justify-end gap-2">' +
+      '<button type="button" data-action="view" data-log-id="' + escapeUsageListHtml(row.log_id) + '" class="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50">ดู</button>' +
+      '<button type="button" data-action="edit" data-log-id="' + escapeUsageListHtml(row.log_id) + '" class="rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-700">' + editLabel + '</button>' +
+      '<button type="button" ' + (disabled ? 'disabled ' : '') + 'data-action="cancel" data-log-id="' + escapeUsageListHtml(row.log_id) + '" class="rounded-lg bg-red-600 px-3 py-2 text-xs font-semibold text-white hover:bg-red-700 disabled:bg-slate-300">ยกเลิก</button>' +
+    '</div>';
+  }
+
+  function viewUsageDetail(logId) {
+    const row = usageRows.find(function (item) { return item.log_id === logId; });
+    if (!row) return;
+    Swal.fire({
+      title: 'รายละเอียดการใช้รถ',
+      html: '<div class="text-left text-sm leading-7">' +
+        '<b>วันที่:</b> ' + escapeUsageListHtml(formatThaiDate(row.usage_date)) + '<br>' +
+        '<b>เวลาออก-กลับ:</b> ' + escapeUsageListHtml(formatTimeRange(row.start_time, row.end_time)) + '<br>' +
+        '<b>รถ:</b> ' + escapeUsageListHtml(row.vehicle_name) + '<br>' +
+        '<b>คนขับ:</b> ' + escapeUsageListHtml(row.driver_name) + '<br>' +
+        '<b>ภารกิจ:</b> ' + escapeUsageListHtml(row.mission_type) + '<br>' +
+        '<b>ปลายทาง:</b> ' + escapeUsageListHtml(row.destination) + '<br>' +
+        '<b>ระยะทาง:</b> ' + Number(row.total_km || 0).toLocaleString('th-TH') + ' กม.<br>' +
+        '<b>สถานะ:</b> ' + escapeUsageListHtml(row.status) + '<br>' +
+        '<b>เหตุผลยกเลิก:</b> ' + escapeUsageListHtml(row.cancel_reason || '-') +
+      '</div>',
+      confirmButtonText: 'ปิด'
+    });
+  }
+
+  function openUsageEditModal(logId) {
+    const row = usageRows.find(function (item) { return item.log_id === logId; });
+    if (!row) return;
+    const isCompleting = row.status === 'in_use';
+
+    document.getElementById('edit_log_id').value = row.log_id;
+    document.getElementById('edit_mode').value = isCompleting ? 'complete' : 'edit';
+    document.getElementById('edit_usage_date').value = row.usage_date;
+    document.getElementById('edit_start_time').value = toUsageTimeInputValue(row.start_time);
+    document.getElementById('edit_end_time').value = toUsageTimeInputValue(row.end_time);
+    ensureUsageVehicleOption(row);
+    document.getElementById('edit_vehicle_id').value = row.vehicle_id;
+    document.getElementById('edit_driver_id').value = row.driver_id;
+    document.getElementById('edit_mission_type').value = row.mission_type;
+    ensureUsageDestinationOption(row.destination);
+    document.getElementById('edit_destination').value = row.destination;
+    document.getElementById('edit_requester_name').value = row.requester_name;
+    ensureUsageDepartmentOption(row.requester_department);
+    document.getElementById('edit_requester_department').value = row.requester_department;
+    document.getElementById('edit_start_mileage').value = row.start_mileage;
+    document.getElementById('edit_end_mileage').value = row.end_mileage;
+    document.getElementById('edit_passenger_count').value = row.passenger_count;
+    document.getElementById('edit_note').value = row.note;
+    document.getElementById('usageEditModalTitle').textContent = isCompleting ? 'ปิดงานใช้รถ' : 'แก้ไขรายการใช้รถ';
+    document.getElementById('usageEditModalDescription').textContent = isCompleting
+      ? 'กรอกเวลากลับและเลขไมล์หลังกลับเพื่อปิดรายการใช้งานรถคันนี้'
+      : 'ตรวจสอบและแก้ไขรายละเอียดรายการใช้รถ';
+    document.getElementById('usageEditSubmitButton').textContent = isCompleting ? 'ปิดงาน' : 'บันทึก';
+    renderUsageCloseSummary(row, isCompleting);
+    setUsageEditMode(isCompleting);
+    document.getElementById('usageEditModal').classList.remove('hidden');
+    document.getElementById('usageEditModal').classList.add('flex');
+  }
+
+  function closeUsageEditModal() {
+    document.getElementById('usageEditModal').classList.add('hidden');
+    document.getElementById('usageEditModal').classList.remove('flex');
+  }
+
+  function renderUsageCloseSummary(row, isCompleting) {
+    const summary = document.getElementById('usageCloseSummary');
+
+    if (!isCompleting) {
+      summary.classList.add('hidden');
+      summary.innerHTML = '';
+      return;
+    }
+
+    summary.classList.remove('hidden');
+    summary.innerHTML = '<div class="font-bold">รายการที่กำลังปิดงาน</div>' +
+      '<div class="mt-2 grid gap-1 sm:grid-cols-2 lg:grid-cols-3">' +
+        '<div><b>รถ:</b> ' + escapeUsageListHtml(row.vehicle_name || '-') + '</div>' +
+        '<div><b>ทะเบียน:</b> ' + escapeUsageListHtml(row.plate_no || '-') + '</div>' +
+        '<div><b>เวลาออก:</b> ' + escapeUsageListHtml(formatTime(row.start_time) || '-') + '</div>' +
+        '<div><b>เลขไมล์ก่อนออก:</b> ' + Number(row.start_mileage || 0).toLocaleString('th-TH') + '</div>' +
+        '<div class="sm:col-span-2"><b>สถานที่ไป:</b> ' + escapeUsageListHtml(row.destination || '-') + '</div>' +
+      '</div>';
+  }
+
+  function setUsageEditMode(isCompleting) {
+    [
+      'edit_usage_date',
+      'edit_start_time',
+      'edit_vehicle_id',
+      'edit_driver_id',
+      'edit_mission_type',
+      'edit_destination',
+      'edit_requester_name',
+      'edit_requester_department',
+      'edit_start_mileage'
+    ].forEach(function (id) {
+      document.getElementById(id).disabled = isCompleting;
+    });
+
+    [
+      'edit_end_time',
+      'edit_end_mileage',
+      'edit_passenger_count',
+      'edit_note'
+    ].forEach(function (id) {
+      document.getElementById(id).disabled = false;
+    });
+  }
+
+  function submitUsageEditForm(event) {
+    event.preventDefault();
+    const logId = document.getElementById('edit_log_id').value;
+    const mode = document.getElementById('edit_mode').value;
+    const payload = collectUsageEditPayload();
+    const message = validateUsageEditClient(payload, mode);
+    if (message) {
+      showUsageListWarning(message);
+      return;
+    }
+    showLoading(true);
+    const runner = google.script.run
+      .withSuccessHandler(function (response) {
+        showLoading(false);
+        if (!response || !response.success) {
+          showUsageListError(response ? response.message : 'แก้ไขข้อมูลไม่สำเร็จ');
+          return;
+        }
+        closeUsageEditModal();
+        Swal.fire({ icon: 'success', title: 'บันทึกสำเร็จ', text: response.message, confirmButtonText: 'ตกลง' });
+        loadUsageLogs();
+      })
+      .withFailureHandler(function (error) {
+        showLoading(false);
+        showUsageListError(error.message || 'แก้ไขข้อมูลไม่สำเร็จ');
+      });
+
+    if (mode === 'complete') {
+      runner.completeUsageLog(logId, payload, getUsageListToken());
+      return;
+    }
+
+    runner.updateUsageLog(logId, payload, getUsageListToken());
+  }
+
+  function cancelUsage(logId) {
+    Swal.fire({
+      title: 'ยกเลิกรายการใช้รถ',
+      input: 'textarea',
+      inputLabel: 'เหตุผลการยกเลิก',
+      inputValidator: function (value) {
+        if (!value) return 'กรุณาระบุเหตุผลการยกเลิก';
+      },
+      showCancelButton: true,
+      confirmButtonText: 'ยืนยัน',
+      cancelButtonText: 'ปิด'
+    }).then(function (result) {
+      if (!result.isConfirmed) return;
+      showLoading(true);
+      google.script.run
+        .withSuccessHandler(function (response) {
+          showLoading(false);
+          if (!response || !response.success) {
+            showUsageListError(response ? response.message : 'ยกเลิกรายการไม่สำเร็จ');
+            return;
+          }
+          Swal.fire({ icon: 'success', title: 'ยกเลิกสำเร็จ', text: response.message, confirmButtonText: 'ตกลง' });
+          loadUsageLogs();
+        })
+        .withFailureHandler(function (error) {
+          showLoading(false);
+          showUsageListError(error.message || 'ยกเลิกรายการไม่สำเร็จ');
+        })
+        .cancelUsageLog(logId, result.value, getUsageListToken());
+    });
+  }
+
+  function collectUsageEditPayload() {
+    return {
+      usage_date: document.getElementById('edit_usage_date').value,
+      start_time: document.getElementById('edit_start_time').value,
+      end_time: document.getElementById('edit_end_time').value,
+      vehicle_id: document.getElementById('edit_vehicle_id').value,
+      driver_id: document.getElementById('edit_driver_id').value,
+      mission_type: document.getElementById('edit_mission_type').value,
+      destination: document.getElementById('edit_destination').value.trim(),
+      requester_name: document.getElementById('edit_requester_name').value.trim(),
+      requester_department: document.getElementById('edit_requester_department').value.trim(),
+      start_mileage: document.getElementById('edit_start_mileage').value,
+      end_mileage: document.getElementById('edit_end_mileage').value,
+      passenger_count: document.getElementById('edit_passenger_count').value,
+      note: document.getElementById('edit_note').value.trim()
+    };
+  }
+
+  function validateUsageEditClient(payload, mode) {
+    if (mode === 'complete') {
+      if (!payload.end_time || payload.end_mileage === '') return 'กรุณากรอกเวลากลับและเลขไมล์หลังกลับ';
+      if (isNaN(Number(payload.end_mileage))) return 'เลขไมล์หลังกลับต้องเป็นตัวเลข';
+      if (!isNaN(Number(payload.start_mileage)) && Number(payload.end_mileage) < Number(payload.start_mileage)) return 'เลขไมล์หลังกลับต้องมากกว่าหรือเท่ากับเลขไมล์ก่อนออก';
+      return '';
+    }
+
+    if (!payload.usage_date || !payload.start_time || !payload.end_time || !payload.vehicle_id || !payload.driver_id || !payload.mission_type || !payload.destination) return 'กรุณากรอกข้อมูลให้ครบถ้วน';
+    if (isNaN(Number(payload.start_mileage)) || isNaN(Number(payload.end_mileage))) return 'เลขไมล์ต้องเป็นตัวเลข';
+    if (Number(payload.end_mileage) < Number(payload.start_mileage)) return 'เลขไมล์หลังกลับต้องมากกว่าหรือเท่ากับเลขไมล์ก่อนออก';
+    if (payload.mission_type === 'อื่น ๆ' && !payload.note) return 'กรุณากรอกหมายเหตุเมื่อเลือกประเภทภารกิจอื่น ๆ';
+    return '';
+  }
+
+  function toUsageTimeInputValue(value) {
+    return formatTime(value);
+  }
+
+  function renderUsageVehicleFilters() {
+    const options = usageListVehicles.map(function (vehicle) {
+      return '<option value="' + escapeUsageListHtml(vehicle.vehicle_id) + '">' + escapeUsageListHtml(vehicle.vehicle_name) + '</option>';
+    }).join('');
+    document.getElementById('usageFilterVehicle').innerHTML = '<option value="">รถทั้งหมด</option>' + options;
+    document.getElementById('edit_vehicle_id').innerHTML = '<option value="">เลือกรถ</option>' + options;
+  }
+
+  function ensureUsageVehicleOption(row) {
+    const select = document.getElementById('edit_vehicle_id');
+    const exists = Array.prototype.some.call(select.options, function (option) {
+      return option.value === row.vehicle_id;
+    });
+
+    if (!exists && row.vehicle_id) {
+      const option = document.createElement('option');
+      option.value = row.vehicle_id;
+      option.textContent = row.vehicle_name + (row.plate_no ? ' (' + row.plate_no + ')' : '');
+      select.appendChild(option);
+    }
+  }
+
+  function renderUsageDriverFilters() {
+    const options = usageListDrivers.map(function (driver) {
+      return '<option value="' + escapeUsageListHtml(driver.driver_id) + '">' + escapeUsageListHtml(driver.full_name) + '</option>';
+    }).join('');
+    document.getElementById('usageFilterDriver').innerHTML = '<option value="">คนขับทั้งหมด</option>' + options;
+    document.getElementById('edit_driver_id').innerHTML = '<option value="">เลือกคนขับ</option>' + options;
+  }
+
+  function renderUsageDepartmentOptions() {
+    const options = usageListDepartments.map(function (department) {
+      return '<option value="' + escapeUsageListHtml(department.department_name) + '">' + escapeUsageListHtml(department.department_name) + '</option>';
+    }).join('');
+    document.getElementById('edit_requester_department').innerHTML = '<option value="">เลือกหน่วยงานผู้ขอใช้รถ</option>' + options;
+  }
+
+  function renderUsageDestinationOptions() {
+    const options = usageListDestinations.map(function (destination) {
+      return '<option value="' + escapeUsageListHtml(destination.destination_name) + '">' + escapeUsageListHtml(destination.destination_name) + '</option>';
+    }).join('');
+    document.getElementById('edit_destination').innerHTML = '<option value="">เลือกสถานที่ไป</option>' + options;
+  }
+
+  function ensureUsageDestinationOption(destinationName) {
+    const select = document.getElementById('edit_destination');
+    const value = String(destinationName || '').trim();
+
+    if (!value) return;
+
+    const exists = Array.prototype.some.call(select.options, function (option) {
+      return option.value === value;
+    });
+
+    if (!exists) {
+      const option = document.createElement('option');
+      option.value = value;
+      option.textContent = value;
+      select.appendChild(option);
+    }
+  }
+
+  function ensureUsageDepartmentOption(departmentName) {
+    const select = document.getElementById('edit_requester_department');
+    const value = String(departmentName || '').trim();
+
+    if (!value) {
+      return;
+    }
+
+    const exists = Array.prototype.some.call(select.options, function (option) {
+      return option.value === value;
+    });
+
+    if (!exists) {
+      const option = document.createElement('option');
+      option.value = value;
+      option.textContent = value;
+      select.appendChild(option);
+    }
+  }
+
+  function renderUsageMissionOptions(sourceMissionTypes) {
+    const missionTypes = sourceMissionTypes || (window.APP_CONFIG && window.APP_CONFIG.missionTypes ? window.APP_CONFIG.missionTypes : []);
+    const options = missionTypes.map(function (missionType) {
+      const missionTypeName = missionType.mission_type_name || missionType;
+      return '<option value="' + escapeUsageListHtml(missionTypeName) + '">' + escapeUsageListHtml(missionTypeName) + '</option>';
+    }).join('');
+    document.getElementById('usageFilterMission').innerHTML = '<option value="">ภารกิจทั้งหมด</option>' + options;
+    document.getElementById('edit_mission_type').innerHTML = '<option value="">เลือกภารกิจ</option>' + options;
+  }
+
+  function clearUsageFilters() {
+    ['usageFilterStart', 'usageFilterEnd', 'usageFilterVehicle', 'usageFilterDriver', 'usageFilterMission', 'usageFilterStatus', 'usageFilterKeyword'].forEach(function (id) {
+      document.getElementById(id).value = '';
+    });
+    loadUsageLogs();
+  }
+
+  function getUsageStatusBadge(status) {
+    const style = status === 'cancelled' ? 'bg-red-50 text-red-700 ring-red-100' : (status === 'in_use' ? 'bg-amber-50 text-amber-700 ring-amber-100' : 'bg-emerald-50 text-emerald-700 ring-emerald-100');
+    return '<span class="inline-flex rounded-full px-3 py-1 text-xs font-semibold ring-1 ' + style + '">' + escapeUsageListHtml(status) + '</span>';
+  }
+
+  function showUsageListError(message) {
+    Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: message, confirmButtonText: 'ตกลง' });
+  }
+
+  function showUsageListWarning(message) {
+    Swal.fire({ icon: 'warning', title: 'ข้อมูลไม่ครบ', text: message, confirmButtonText: 'ตกลง' });
+  }
+
+  function getUsageListToken() {
+    return localStorage.getItem('sph_vehicle_log_token') || '';
+  }
+
+  function getUsageListInfoText() {
+    const totalRows = Number(usageRowsMeta.totalRows || usageRows.length || 0);
+
+    if (totalRows > usageRows.length) {
+      return 'แสดง ' + usageRows.length.toLocaleString('th-TH') + ' จาก ' + totalRows.toLocaleString('th-TH') + ' รายการ';
+    }
+
+    return 'แสดง ' + usageRows.length.toLocaleString('th-TH') + ' รายการ';
+  }
+
+  function escapeUsageListHtml(value) {
+    return String(value || '').replace(/[&<>"']/g, function (char) {
+      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' })[char];
+    });
+  }
+</script>

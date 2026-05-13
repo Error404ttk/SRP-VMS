@@ -1,0 +1,29 @@
+# Environment & Secrets
+.env
+.env.*
+sph-server/.env
+sph-server/.env.*
+
+# Service Account Keys & Credentials (Ignore credentials, allow package configs)
+*.json
+!package.json
+!package-lock.json
+!appsscript.json
+!.clasp.json
+
+# Dependencies
+node_modules/
+sph-server/node_modules/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+sph-server/*.log
+sph-server/server.log
+
+# IDE
+.vscode/
+.idea/

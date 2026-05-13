@@ -1,0 +1,338 @@
+<section class="mx-auto max-w-7xl space-y-5">
+  <div class="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+    <div>
+      <p class="text-sm font-semibold text-sky-600">จัดการพนักงานขับรถ</p>
+      <h2 class="mt-1 text-2xl font-bold text-slate-950">ข้อมูลพนักงานขับรถ</h2>
+    </div>
+    <button onclick="openDriverModal()" class="rounded-xl bg-sky-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-sky-100 hover:bg-sky-700">
+      + เพิ่มพนักงานขับรถ
+    </button>
+  </div>
+
+  <div class="page-card p-4">
+    <input
+      id="driverSearch"
+      type="text"
+      oninput="renderDriverTable()"
+      class="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-sky-400 focus:bg-white focus:ring-4 focus:ring-sky-100"
+      placeholder="ค้นหาชื่อ เบอร์โทร ใบขับขี่ หรือสถานะ">
+  </div>
+
+  <div class="page-card overflow-hidden">
+    <div id="driverLoadInfo" class="border-b border-slate-100 px-4 py-3 text-sm text-slate-500">กำลังโหลดข้อมูลพนักงานขับรถ...</div>
+    <div class="overflow-x-auto">
+      <table class="min-w-full divide-y divide-slate-200">
+        <thead class="bg-slate-50">
+          <tr>
+            <th class="px-4 py-3 text-left text-xs font-bold uppercase text-slate-500">ชื่อ-สกุล</th>
+            <th class="px-4 py-3 text-left text-xs font-bold uppercase text-slate-500">เบอร์โทร</th>
+            <th class="px-4 py-3 text-left text-xs font-bold uppercase text-slate-500">เลขใบขับขี่</th>
+            <th class="px-4 py-3 text-left text-xs font-bold uppercase text-slate-500">สถานะ</th>
+            <th class="px-4 py-3 text-left text-xs font-bold uppercase text-slate-500">หมายเหตุ</th>
+            <th class="px-4 py-3 text-right text-xs font-bold uppercase text-slate-500">จัดการ</th>
+          </tr>
+        </thead>
+        <tbody id="driverTableBody" class="divide-y divide-slate-100 bg-white"></tbody>
+      </table>
+    </div>
+    <div id="driverEmptyState" class="hidden px-6 py-10 text-center text-slate-500">ไม่พบข้อมูลพนักงานขับรถ</div>
+  </div>
+</section>
+
+<div id="driverModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/50 px-4">
+  <div class="w-full max-w-2xl rounded-2xl bg-white shadow-2xl">
+    <div class="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+      <h3 id="driverModalTitle" class="text-lg font-bold text-slate-950">เพิ่มพนักงานขับรถ</h3>
+      <button onclick="closeDriverModal()" class="rounded-lg px-3 py-1 text-xl text-slate-500 hover:bg-slate-100">&times;</button>
+    </div>
+
+    <form id="driverForm" class="grid gap-4 p-5 sm:grid-cols-2">
+      <input type="hidden" id="driver_id">
+
+      <label class="block sm:col-span-2">
+        <span class="mb-1 block text-sm font-semibold text-slate-700">ชื่อ-สกุล</span>
+        <input id="full_name" class="driver-input" type="text">
+      </label>
+
+      <label class="block">
+        <span class="mb-1 block text-sm font-semibold text-slate-700">เบอร์โทร</span>
+        <input id="phone" class="driver-input" type="text">
+      </label>
+
+      <label class="block">
+        <span class="mb-1 block text-sm font-semibold text-slate-700">เลขใบขับขี่</span>
+        <input id="license_no" class="driver-input" type="text">
+      </label>
+
+      <label class="block">
+        <span class="mb-1 block text-sm font-semibold text-slate-700">สถานะ</span>
+        <select id="driver_status" class="driver-input">
+          <option value="active">ใช้งาน</option>
+          <option value="inactive">ไม่ใช้งาน</option>
+        </select>
+      </label>
+
+      <label class="block sm:col-span-2">
+        <span class="mb-1 block text-sm font-semibold text-slate-700">หมายเหตุ</span>
+        <textarea id="driver_remark" class="driver-input min-h-24" rows="3"></textarea>
+      </label>
+
+      <div class="flex justify-end gap-3 border-t border-slate-100 pt-4 sm:col-span-2">
+        <button type="button" onclick="closeDriverModal()" class="rounded-xl border border-slate-200 px-5 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">ยกเลิก</button>
+        <button type="submit" class="rounded-xl bg-sky-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-sky-700">บันทึก</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<style>
+  .driver-input {
+    width: 100%;
+    border-radius: 0.75rem;
+    border: 1px solid rgb(226 232 240);
+    background: rgb(248 250 252);
+    padding: 0.7rem 0.9rem;
+    outline: none;
+  }
+
+  .driver-input:focus {
+    border-color: rgb(56 189 248);
+    background: white;
+    box-shadow: 0 0 0 4px rgb(224 242 254);
+  }
+</style>
+
+<script>
+  let drivers = [];
+  let driverLoadTimer = null;
+  let driverPageInitialized = false;
+
+  document.addEventListener('sphAuthReady', initDriverPage);
+  document.addEventListener('DOMContentLoaded', function () {
+    setTimeout(initDriverPage, 300);
+    setTimeout(initDriverPage, 1000);
+  });
+
+  function initDriverPage() {
+    if (driverPageInitialized || window.CURRENT_PAGE !== 'drivers') {
+      return;
+    }
+
+    const token = getDriverToken();
+    const form = document.getElementById('driverForm');
+
+    if (!token) {
+      document.getElementById('driverLoadInfo').textContent = 'Session หมดอายุ กรุณาเข้าสู่ระบบใหม่';
+      return;
+    }
+
+    driverPageInitialized = true;
+
+    if (form) {
+      form.addEventListener('submit', submitDriverForm);
+    }
+
+    bindDriverTableActions();
+    loadDrivers();
+  }
+
+  function bindDriverTableActions() {
+    const tableBody = document.getElementById('driverTableBody');
+
+    if (!tableBody || tableBody.dataset.bound === 'true') {
+      return;
+    }
+
+    tableBody.dataset.bound = 'true';
+    tableBody.addEventListener('click', function (event) {
+      const button = event.target.closest('[data-action="edit-driver"]');
+
+      if (button) {
+        openDriverModal(button.dataset.driverId || '');
+      }
+    });
+  }
+
+  function loadDrivers() {
+    const loadInfo = document.getElementById('driverLoadInfo');
+    const token = getDriverToken();
+
+    if (!token) {
+      loadInfo.textContent = 'Session หมดอายุ กรุณาเข้าสู่ระบบใหม่';
+      return;
+    }
+
+    loadInfo.innerHTML = 'กำลังโหลดข้อมูลพนักงานขับรถ...';
+    clearTimeout(driverLoadTimer);
+    driverLoadTimer = setTimeout(function () {
+      showLoading(false);
+      loadInfo.innerHTML = 'โหลดข้อมูลนานผิดปกติ <button type="button" onclick="loadDrivers()" class="ml-2 rounded-lg bg-slate-900 px-3 py-1 text-xs font-semibold text-white">โหลดใหม่</button>';
+    }, 12000);
+
+    showLoading(true);
+    google.script.run
+      .withSuccessHandler(function (response) {
+        clearTimeout(driverLoadTimer);
+        showLoading(false);
+
+        if (!response || !response.success) {
+          loadInfo.textContent = response ? response.message : 'ไม่สามารถโหลดข้อมูลพนักงานขับรถได้';
+          showDriverError(response ? response.message : 'ไม่สามารถโหลดข้อมูลพนักงานขับรถได้');
+          return;
+        }
+
+        drivers = response.data || [];
+        loadInfo.textContent = 'พบข้อมูลพนักงานขับรถ ' + drivers.length + ' รายการ';
+        renderDriverTable();
+      })
+      .withFailureHandler(function (error) {
+        clearTimeout(driverLoadTimer);
+        showLoading(false);
+        loadInfo.textContent = error.message || 'ไม่สามารถโหลดข้อมูลพนักงานขับรถได้';
+        showDriverError(error.message || 'ไม่สามารถโหลดข้อมูลพนักงานขับรถได้');
+      })
+      .getDrivers(token);
+  }
+
+  function renderDriverTable() {
+    const keyword = (document.getElementById('driverSearch').value || '').toLowerCase();
+    const rows = drivers.filter(function (driver) {
+      return [
+        driver.full_name,
+        driver.phone,
+        driver.license_no,
+        getDriverStatusLabel(driver.status),
+        driver.remark
+      ].join(' ').toLowerCase().includes(keyword);
+    });
+
+    document.getElementById('driverEmptyState').classList.toggle('hidden', rows.length > 0);
+    document.getElementById('driverEmptyState').textContent = drivers.length > 0 && rows.length === 0
+      ? 'ไม่พบข้อมูลที่ตรงกับคำค้นหา'
+      : 'ไม่พบข้อมูลพนักงานขับรถ';
+
+    document.getElementById('driverTableBody').innerHTML = rows.map(function (driver) {
+      return '<tr class="hover:bg-slate-50">' +
+        '<td class="px-4 py-3 text-sm font-semibold text-slate-900">' + escapeDriverHtml(driver.full_name) + '</td>' +
+        '<td class="px-4 py-3 text-sm text-slate-700">' + escapeDriverHtml(driver.phone) + '</td>' +
+        '<td class="px-4 py-3 text-sm text-slate-700">' + escapeDriverHtml(driver.license_no) + '</td>' +
+        '<td class="px-4 py-3 text-sm">' + getDriverStatusBadge(driver.status) + '</td>' +
+        '<td class="px-4 py-3 text-sm text-slate-600">' + escapeDriverHtml(driver.remark) + '</td>' +
+        '<td class="px-4 py-3 text-right">' +
+          '<button type="button" data-action="edit-driver" data-driver-id="' + escapeDriverHtml(driver.driver_id) + '" class="rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-700">แก้ไข</button>' +
+        '</td>' +
+      '</tr>';
+    }).join('');
+  }
+
+  function openDriverModal(driverId) {
+    resetDriverForm();
+
+    if (driverId) {
+      const driver = drivers.find(function (item) { return item.driver_id === driverId; });
+
+      if (driver) {
+        document.getElementById('driverModalTitle').textContent = 'แก้ไขพนักงานขับรถ';
+        document.getElementById('driver_id').value = driver.driver_id || '';
+        document.getElementById('full_name').value = driver.full_name || '';
+        document.getElementById('phone').value = driver.phone || '';
+        document.getElementById('license_no').value = driver.license_no || '';
+        document.getElementById('driver_status').value = driver.status || 'active';
+        document.getElementById('driver_remark').value = driver.remark || '';
+      }
+    } else {
+      document.getElementById('driverModalTitle').textContent = 'เพิ่มพนักงานขับรถ';
+      document.getElementById('driver_status').value = 'active';
+    }
+
+    document.getElementById('driverModal').classList.remove('hidden');
+    document.getElementById('driverModal').classList.add('flex');
+  }
+
+  function closeDriverModal() {
+    document.getElementById('driverModal').classList.add('hidden');
+    document.getElementById('driverModal').classList.remove('flex');
+  }
+
+  function resetDriverForm() {
+    document.getElementById('driverForm').reset();
+    document.getElementById('driver_id').value = '';
+  }
+
+  function submitDriverForm(event) {
+    event.preventDefault();
+
+    const driverId = document.getElementById('driver_id').value;
+    const payload = {
+      full_name: document.getElementById('full_name').value.trim(),
+      phone: document.getElementById('phone').value.trim(),
+      license_no: document.getElementById('license_no').value.trim(),
+      status: document.getElementById('driver_status').value,
+      remark: document.getElementById('driver_remark').value.trim()
+    };
+
+    if (!payload.full_name) {
+      showDriverWarning('กรุณากรอกชื่อ-สกุลพนักงานขับรถ');
+      return;
+    }
+
+    showLoading(true);
+    const runner = google.script.run
+      .withSuccessHandler(function (response) {
+        showLoading(false);
+
+        if (!response || !response.success) {
+          showDriverError(response ? response.message : 'บันทึกข้อมูลไม่สำเร็จ');
+          return;
+        }
+
+        closeDriverModal();
+        Swal.fire({
+          icon: 'success',
+          title: 'บันทึกสำเร็จ',
+          text: response.message,
+          confirmButtonText: 'ตกลง'
+        });
+        loadDrivers();
+      })
+      .withFailureHandler(function (error) {
+        showLoading(false);
+        showDriverError(error.message || 'บันทึกข้อมูลไม่สำเร็จ');
+      });
+
+    if (driverId) {
+      runner.updateDriver(driverId, payload, getDriverToken());
+    } else {
+      runner.createDriver(payload, getDriverToken());
+    }
+  }
+
+  function getDriverStatusLabel(status) {
+    return status === 'active' ? 'ใช้งาน' : 'ไม่ใช้งาน';
+  }
+
+  function getDriverStatusBadge(status) {
+    const style = status === 'active'
+      ? 'bg-emerald-50 text-emerald-700 ring-emerald-100'
+      : 'bg-slate-100 text-slate-600 ring-slate-200';
+    return '<span class="inline-flex rounded-full px-3 py-1 text-xs font-semibold ring-1 ' + style + '">' + getDriverStatusLabel(status) + '</span>';
+  }
+
+  function showDriverError(message) {
+    Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: message, confirmButtonText: 'ตกลง' });
+  }
+
+  function showDriverWarning(message) {
+    Swal.fire({ icon: 'warning', title: 'ข้อมูลไม่ครบ', text: message, confirmButtonText: 'ตกลง' });
+  }
+
+  function getDriverToken() {
+    return localStorage.getItem('sph_vehicle_log_token') || '';
+  }
+
+  function escapeDriverHtml(value) {
+    return String(value || '').replace(/[&<>"']/g, function (char) {
+      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' })[char];
+    });
+  }
+</script>

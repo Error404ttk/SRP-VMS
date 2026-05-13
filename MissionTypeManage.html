@@ -1,0 +1,93 @@
+<section class="mx-auto max-w-6xl space-y-5">
+  <div class="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+    <div>
+      <p class="text-sm font-semibold text-sky-600">ตั้งค่าข้อมูลหลัก</p>
+      <h2 class="mt-1 text-2xl font-bold text-slate-950">จัดการประเภทภารกิจ</h2>
+    </div>
+    <button type="button" onclick="openMissionTypeModal()" class="rounded-xl bg-sky-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-sky-700">เพิ่มประเภทภารกิจ</button>
+  </div>
+  <div class="page-card overflow-hidden">
+    <div id="missionTypeInfo" class="border-b border-slate-100 px-4 py-3 text-sm text-slate-500">กำลังโหลดข้อมูล...</div>
+    <div class="overflow-x-auto">
+      <table class="min-w-full divide-y divide-slate-200">
+        <thead class="bg-slate-50"><tr><th class="px-4 py-3 text-left text-xs font-bold uppercase text-slate-500">ประเภทภารกิจ</th><th class="px-4 py-3 text-left text-xs font-bold uppercase text-slate-500">สถานะ</th><th class="px-4 py-3 text-left text-xs font-bold uppercase text-slate-500">หมายเหตุ</th><th class="px-4 py-3 text-right text-xs font-bold uppercase text-slate-500">จัดการ</th></tr></thead>
+        <tbody id="missionTypeTableBody" class="divide-y divide-slate-100 bg-white"></tbody>
+      </table>
+    </div>
+    <div id="missionTypeEmpty" class="hidden px-6 py-10 text-center text-slate-500">ไม่พบข้อมูลประเภทภารกิจ</div>
+  </div>
+</section>
+
+<div id="missionTypeModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/50 px-4">
+  <div class="w-full max-w-xl rounded-2xl bg-white shadow-2xl">
+    <div class="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+      <h3 id="missionTypeModalTitle" class="text-lg font-bold text-slate-950">เพิ่มประเภทภารกิจ</h3>
+      <button onclick="closeMissionTypeModal()" class="rounded-lg px-3 py-1 text-xl text-slate-500 hover:bg-slate-100">&times;</button>
+    </div>
+    <form id="missionTypeForm" class="space-y-4 p-5">
+      <input type="hidden" id="mission_type_id">
+      <label class="block"><span class="mb-1 block text-sm font-semibold text-slate-700">ชื่อประเภทภารกิจ</span><input id="mission_type_name" type="text" class="mission-type-input"></label>
+      <label class="block"><span class="mb-1 block text-sm font-semibold text-slate-700">สถานะ</span><select id="mission_type_status" class="mission-type-input"><option value="active">active</option><option value="inactive">inactive</option></select></label>
+      <label class="block"><span class="mb-1 block text-sm font-semibold text-slate-700">หมายเหตุ</span><textarea id="mission_type_remark" rows="3" class="mission-type-input min-h-24"></textarea></label>
+      <div class="flex justify-end gap-3 border-t border-slate-100 pt-4"><button type="button" onclick="closeMissionTypeModal()" class="rounded-xl border border-slate-200 px-5 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">ยกเลิก</button><button type="submit" class="rounded-xl bg-sky-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-sky-700">บันทึก</button></div>
+    </form>
+  </div>
+</div>
+
+<style>.mission-type-input{width:100%;border-radius:.75rem;border:1px solid rgb(226 232 240);background:rgb(248 250 252);padding:.7rem .9rem;outline:none}.mission-type-input:focus{border-color:rgb(56 189 248);background:white;box-shadow:0 0 0 4px rgb(224 242 254)}</style>
+
+<script>
+  let missionTypeRows = [];
+  let missionTypeInitialized = false;
+  document.addEventListener('sphAuthReady', initMissionTypePage);
+  document.addEventListener('DOMContentLoaded', function () { setTimeout(initMissionTypePage, 300); setTimeout(initMissionTypePage, 1000); });
+  function initMissionTypePage() {
+    if (missionTypeInitialized || window.CURRENT_PAGE !== 'mission-types') return;
+    const auth = window.SPH_AUTH_CONTEXT || {};
+    if (!auth.token || !auth.user || auth.user.role !== 'admin') { document.getElementById('missionTypeInfo').textContent = 'คุณไม่มีสิทธิ์เข้าถึงเมนูนี้'; return; }
+    missionTypeInitialized = true;
+    document.getElementById('missionTypeForm').addEventListener('submit', submitMissionTypeForm);
+    document.getElementById('missionTypeTableBody').addEventListener('click', function (event) { const button = event.target.closest('.mission-type-edit-button'); if (button) openMissionTypeModal(button.dataset.missionTypeId); });
+    loadMissionTypes();
+  }
+  function loadMissionTypes() {
+    showLoading(true);
+    google.script.run.withSuccessHandler(function (response) {
+      showLoading(false);
+      if (!response || !response.success) { showMissionTypeError(response ? response.message : 'โหลดข้อมูลไม่สำเร็จ'); return; }
+      missionTypeRows = response.data || [];
+      document.getElementById('missionTypeInfo').textContent = 'แสดง ' + missionTypeRows.length.toLocaleString('th-TH') + ' รายการ';
+      renderMissionTypeTable();
+    }).withFailureHandler(function (error) { showLoading(false); showMissionTypeError(error.message || 'โหลดข้อมูลไม่สำเร็จ'); }).getMissionTypes(getMissionTypeToken());
+  }
+  function renderMissionTypeTable() {
+    document.getElementById('missionTypeEmpty').classList.toggle('hidden', missionTypeRows.length > 0);
+    document.getElementById('missionTypeTableBody').innerHTML = missionTypeRows.map(function (row) {
+      return '<tr class="hover:bg-slate-50"><td class="px-4 py-3 text-sm font-semibold text-slate-900">' + escapeMissionTypeHtml(row.mission_type_name) + '</td><td class="px-4 py-3 text-sm">' + getMissionTypeStatusBadge(row.status) + '</td><td class="px-4 py-3 text-sm text-slate-700">' + escapeMissionTypeHtml(row.remark || '-') + '</td><td class="px-4 py-3 text-right"><button type="button" data-mission-type-id="' + escapeMissionTypeHtml(row.mission_type_id) + '" class="mission-type-edit-button rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-700">แก้ไข</button></td></tr>';
+    }).join('');
+  }
+  function openMissionTypeModal(missionTypeId) {
+    const row = missionTypeRows.find(function (item) { return item.mission_type_id === missionTypeId; });
+    document.getElementById('missionTypeModalTitle').textContent = row ? 'แก้ไขประเภทภารกิจ' : 'เพิ่มประเภทภารกิจ';
+    document.getElementById('mission_type_id').value = row ? row.mission_type_id : '';
+    document.getElementById('mission_type_name').value = row ? row.mission_type_name : '';
+    document.getElementById('mission_type_status').value = row ? row.status : 'active';
+    document.getElementById('mission_type_remark').value = row ? row.remark : '';
+    document.getElementById('missionTypeModal').classList.remove('hidden'); document.getElementById('missionTypeModal').classList.add('flex');
+  }
+  function closeMissionTypeModal() { document.getElementById('missionTypeModal').classList.add('hidden'); document.getElementById('missionTypeModal').classList.remove('flex'); }
+  function submitMissionTypeForm(event) {
+    event.preventDefault();
+    const missionTypeId = document.getElementById('mission_type_id').value;
+    const payload = { mission_type_name: document.getElementById('mission_type_name').value.trim(), status: document.getElementById('mission_type_status').value, remark: document.getElementById('mission_type_remark').value.trim() };
+    if (!payload.mission_type_name) { showMissionTypeError('กรุณากรอกชื่อประเภทภารกิจ'); return; }
+    showLoading(true);
+    const runner = google.script.run.withSuccessHandler(function (response) { showLoading(false); if (!response || !response.success) { showMissionTypeError(response ? response.message : 'บันทึกข้อมูลไม่สำเร็จ'); return; } closeMissionTypeModal(); Swal.fire({ icon:'success', title:'บันทึกสำเร็จ', text:response.message, confirmButtonText:'ตกลง' }); loadMissionTypes(); }).withFailureHandler(function (error) { showLoading(false); showMissionTypeError(error.message || 'บันทึกข้อมูลไม่สำเร็จ'); });
+    if (missionTypeId) { runner.updateMissionType(missionTypeId, payload, getMissionTypeToken()); return; }
+    runner.createMissionType(payload, getMissionTypeToken());
+  }
+  function getMissionTypeStatusBadge(status) { const style = status === 'active' ? 'bg-emerald-50 text-emerald-700 ring-emerald-100' : 'bg-slate-100 text-slate-600 ring-slate-200'; return '<span class="inline-flex rounded-full px-3 py-1 text-xs font-semibold ring-1 ' + style + '">' + escapeMissionTypeHtml(status) + '</span>'; }
+  function showMissionTypeError(message) { Swal.fire({ icon:'error', title:'เกิดข้อผิดพลาด', text:message, confirmButtonText:'ตกลง' }); }
+  function getMissionTypeToken() { return localStorage.getItem('sph_vehicle_log_token') || ''; }
+  function escapeMissionTypeHtml(value) { return String(value || '').replace(/[&<>"']/g, function (char) { return ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#039;' })[char]; }); }
+</script>

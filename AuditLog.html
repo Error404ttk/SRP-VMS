@@ -1,0 +1,253 @@
+<section class="mx-auto max-w-7xl space-y-5">
+  <div class="flex flex-col justify-between gap-3 lg:flex-row lg:items-center">
+    <div>
+      <p class="text-sm font-semibold text-sky-600">ประวัติระบบ</p>
+      <h2 class="mt-1 text-2xl font-bold text-slate-950">Audit Log การใช้งานระบบ</h2>
+    </div>
+    <div id="auditLogInfo" class="text-sm text-slate-500">กำลังโหลดข้อมูล...</div>
+  </div>
+
+  <div class="page-card grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-4">
+    <input id="auditStartDate" type="date" class="audit-input">
+    <input id="auditEndDate" type="date" class="audit-input">
+    <select id="auditAction" class="audit-input"><option value="">Action ทั้งหมด</option></select>
+    <select id="auditModule" class="audit-input"><option value="">Module ทั้งหมด</option></select>
+    <select id="auditRole" class="audit-input">
+      <option value="">สิทธิ์ทั้งหมด</option>
+      <option value="admin">admin</option>
+      <option value="user">user</option>
+    </select>
+    <input id="auditKeyword" type="text" class="audit-input sm:col-span-2 lg:col-span-3" placeholder="ค้นหา action, รายละเอียด, username หรือชื่อผู้ใช้งาน">
+    <div class="flex flex-wrap gap-2 sm:col-span-2 lg:col-span-4">
+      <button type="button" onclick="loadAuditLogs()" class="rounded-xl bg-sky-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-sky-700">ค้นหา</button>
+      <button type="button" onclick="clearAuditFilters()" class="audit-button">ล้างตัวกรอง</button>
+      <button type="button" onclick="cleanupOldAuditLogs()" class="rounded-xl bg-red-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-red-700">ล้าง Log เก่ากว่า 2 ปี</button>
+    </div>
+  </div>
+
+  <div class="page-card overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="min-w-full divide-y divide-slate-200">
+        <thead class="bg-slate-50">
+          <tr>
+            <th class="px-4 py-3 text-left text-xs font-bold uppercase text-slate-500">วันเวลา</th>
+            <th class="px-4 py-3 text-left text-xs font-bold uppercase text-slate-500">Action</th>
+            <th class="px-4 py-3 text-left text-xs font-bold uppercase text-slate-500">Module</th>
+            <th class="px-4 py-3 text-left text-xs font-bold uppercase text-slate-500">รายละเอียด</th>
+            <th class="px-4 py-3 text-left text-xs font-bold uppercase text-slate-500">Username</th>
+            <th class="px-4 py-3 text-left text-xs font-bold uppercase text-slate-500">ชื่อผู้ใช้งาน</th>
+            <th class="px-4 py-3 text-left text-xs font-bold uppercase text-slate-500">สิทธิ์</th>
+          </tr>
+        </thead>
+        <tbody id="auditLogBody" class="divide-y divide-slate-100 bg-white"></tbody>
+      </table>
+    </div>
+    <div id="auditLogEmpty" class="hidden px-6 py-10 text-center text-slate-500">ไม่พบข้อมูลประวัติระบบ</div>
+    <div class="border-t border-slate-100 px-4 py-3 text-center">
+      <button id="auditLoadMoreButton" type="button" onclick="loadMoreAuditLogs()" class="hidden rounded-xl border border-slate-200 px-5 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">โหลดเพิ่ม</button>
+    </div>
+  </div>
+</section>
+
+<style>
+  .audit-input {
+    width: 100%;
+    border-radius: 0.75rem;
+    border: 1px solid rgb(226 232 240);
+    background: rgb(248 250 252);
+    padding: 0.7rem 0.9rem;
+    outline: none;
+  }
+
+  .audit-input:focus {
+    border-color: rgb(56 189 248);
+    background: white;
+    box-shadow: 0 0 0 4px rgb(224 242 254);
+  }
+
+  .audit-button {
+    border-radius: 0.75rem;
+    border: 1px solid rgb(226 232 240);
+    padding: 0.625rem 1rem;
+    font-size: 0.875rem;
+    font-weight: 700;
+    color: rgb(51 65 85);
+    background: white;
+  }
+</style>
+
+<script>
+  let auditLogInitialized = false;
+  let auditLogRows = [];
+  let auditLogMeta = {
+    totalRows: 0,
+    limit: 20,
+    offset: 0,
+    actions: [],
+    modules: []
+  };
+
+  document.addEventListener('sphAuthReady', initAuditLogPage);
+  document.addEventListener('DOMContentLoaded', function () {
+    setTimeout(initAuditLogPage, 300);
+    setTimeout(initAuditLogPage, 1000);
+  });
+
+  function initAuditLogPage() {
+    if (auditLogInitialized || window.CURRENT_PAGE !== 'audit-logs') return;
+    const auth = window.SPH_AUTH_CONTEXT || {};
+    if (!getAuditLogToken()) {
+      document.getElementById('auditLogInfo').textContent = 'Session หมดอายุ กรุณาเข้าสู่ระบบใหม่';
+      return;
+    }
+    if (!auth.user || auth.user.role !== 'admin') {
+      document.getElementById('auditLogInfo').textContent = 'คุณไม่มีสิทธิ์เข้าถึงเมนูนี้';
+      return;
+    }
+
+    auditLogInitialized = true;
+    loadAuditLogs();
+  }
+
+  function loadAuditLogs(isLoadMore) {
+    showLoading(true);
+    const filters = collectAuditFilters();
+    filters.offset = isLoadMore ? auditLogRows.length : 0;
+    document.getElementById('auditLogInfo').textContent = 'กำลังโหลดประวัติระบบ...';
+    google.script.run
+      .withSuccessHandler(function (response) {
+        showLoading(false);
+        if (!response || !response.success) {
+          document.getElementById('auditLogInfo').textContent = response ? response.message : 'โหลดประวัติระบบไม่สำเร็จ';
+          showAuditLogError(response ? response.message : 'โหลดประวัติระบบไม่สำเร็จ');
+          return;
+        }
+        const rows = response.data && response.data.rows ? response.data.rows : [];
+        auditLogRows = isLoadMore ? auditLogRows.concat(rows) : rows;
+        auditLogMeta = response.data || auditLogMeta;
+        document.getElementById('auditLogInfo').textContent = getAuditInfoText();
+        renderAuditFilterOptions();
+        renderAuditLogTable();
+      })
+      .withFailureHandler(function (error) {
+        showLoading(false);
+        document.getElementById('auditLogInfo').textContent = error.message || 'โหลดประวัติระบบไม่สำเร็จ';
+        showAuditLogError(error.message || 'โหลดประวัติระบบไม่สำเร็จ');
+      })
+      .getAuditLogs(filters, getAuditLogToken());
+  }
+
+  function loadMoreAuditLogs() {
+    loadAuditLogs(true);
+  }
+
+  function renderAuditLogTable() {
+    document.getElementById('auditLogEmpty').classList.toggle('hidden', auditLogRows.length > 0);
+    document.getElementById('auditLoadMoreButton').classList.toggle('hidden', auditLogRows.length >= Number(auditLogMeta.totalRows || auditLogRows.length));
+    document.getElementById('auditLogBody').innerHTML = auditLogRows.map(function (row) {
+      return '<tr class="hover:bg-slate-50">' +
+        '<td class="whitespace-nowrap px-4 py-3 text-sm text-slate-700">' + escapeAuditHtml(row.timestamp) + '</td>' +
+        '<td class="px-4 py-3 text-sm font-semibold text-slate-900">' + escapeAuditHtml(row.action) + '</td>' +
+        '<td class="px-4 py-3 text-sm text-slate-700">' + escapeAuditHtml(row.module) + '</td>' +
+        '<td class="min-w-80 px-4 py-3 text-sm text-slate-700">' + escapeAuditHtml(row.detail) + '</td>' +
+        '<td class="px-4 py-3 text-sm text-slate-700">' + escapeAuditHtml(row.username) + '</td>' +
+        '<td class="px-4 py-3 text-sm text-slate-700">' + escapeAuditHtml(row.full_name) + '</td>' +
+        '<td class="px-4 py-3 text-sm">' + getAuditRoleBadge(row.role) + '</td>' +
+      '</tr>';
+    }).join('');
+  }
+
+  function renderAuditFilterOptions() {
+    const currentAction = document.getElementById('auditAction').value;
+    const currentModule = document.getElementById('auditModule').value;
+    const actionOptions = (auditLogMeta.actions || []).map(function (action) {
+      return '<option value="' + escapeAuditHtml(action) + '">' + escapeAuditHtml(action) + '</option>';
+    }).join('');
+    const moduleOptions = (auditLogMeta.modules || []).map(function (moduleName) {
+      return '<option value="' + escapeAuditHtml(moduleName) + '">' + escapeAuditHtml(moduleName) + '</option>';
+    }).join('');
+
+    document.getElementById('auditAction').innerHTML = '<option value="">Action ทั้งหมด</option>' + actionOptions;
+    document.getElementById('auditModule').innerHTML = '<option value="">Module ทั้งหมด</option>' + moduleOptions;
+    document.getElementById('auditAction').value = currentAction;
+    document.getElementById('auditModule').value = currentModule;
+  }
+
+  function collectAuditFilters() {
+    return {
+      startDate: document.getElementById('auditStartDate').value,
+      endDate: document.getElementById('auditEndDate').value,
+      action: document.getElementById('auditAction').value,
+      module: document.getElementById('auditModule').value,
+      role: document.getElementById('auditRole').value,
+      keyword: document.getElementById('auditKeyword').value,
+      limit: 20
+    };
+  }
+
+  function cleanupOldAuditLogs() {
+    Swal.fire({
+      icon: 'warning',
+      title: 'ล้าง Audit Log เก่า',
+      text: 'ต้องการล้าง Log ที่เก่ากว่า 2 ปีหรือไม่',
+      showCancelButton: true,
+      confirmButtonText: 'ยืนยัน',
+      cancelButtonText: 'ยกเลิก'
+    }).then(function (result) {
+      if (!result.isConfirmed) return;
+      showLoading(true);
+      google.script.run
+        .withSuccessHandler(function (response) {
+          showLoading(false);
+          if (!response || !response.success) {
+            showAuditLogError(response ? response.message : 'ล้าง Audit Log ไม่สำเร็จ');
+            return;
+          }
+          Swal.fire({ icon: 'success', title: 'ล้าง Log สำเร็จ', text: 'ลบ ' + (response.data.deletedRows || 0) + ' รายการ', confirmButtonText: 'ตกลง' });
+          loadAuditLogs();
+        })
+        .withFailureHandler(function (error) {
+          showLoading(false);
+          showAuditLogError(error.message || 'ล้าง Audit Log ไม่สำเร็จ');
+        })
+        .cleanupAuditLogs(730, getAuditLogToken());
+    });
+  }
+
+  function clearAuditFilters() {
+    ['auditStartDate', 'auditEndDate', 'auditAction', 'auditModule', 'auditRole', 'auditKeyword'].forEach(function (id) {
+      document.getElementById(id).value = '';
+    });
+    loadAuditLogs();
+  }
+
+  function getAuditRoleBadge(role) {
+    const style = role === 'admin' ? 'bg-sky-50 text-sky-700 ring-sky-100' : 'bg-slate-50 text-slate-700 ring-slate-100';
+    return '<span class="inline-flex rounded-full px-3 py-1 text-xs font-semibold ring-1 ' + style + '">' + escapeAuditHtml(role || '-') + '</span>';
+  }
+
+  function getAuditLogToken() {
+    return localStorage.getItem('sph_vehicle_log_token') || '';
+  }
+
+  function getAuditInfoText() {
+    const totalRows = Number(auditLogMeta.totalRows || auditLogRows.length || 0);
+    const limit = Number(auditLogMeta.limit || 20);
+
+    if (totalRows > auditLogRows.length && totalRows > limit) {
+      return 'แสดง ' + auditLogRows.length.toLocaleString('th-TH') + ' จาก ' + totalRows.toLocaleString('th-TH') + ' รายการ';
+    }
+
+    return 'แสดง ' + auditLogRows.length.toLocaleString('th-TH') + ' รายการ';
+  }
+
+  function showAuditLogError(message) {
+    Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: message, confirmButtonText: 'ตกลง' });
+  }
+
+  function escapeAuditHtml(value) {
+    return String(value || '').replace(/[&<>"']/g, function (char) {
+      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' })[char];
+    });
+  }
+</script>

@@ -1,0 +1,333 @@
+<section class="mx-auto max-w-6xl space-y-5">
+  <div>
+    <p class="text-sm font-semibold text-emerald-600">ขอใช้รถ</p>
+    <h2 class="mt-1 text-2xl font-bold text-slate-950">แบบฟอร์มเริ่มใช้งานรถราชการ</h2>
+  </div>
+
+  <form id="usageForm" class="page-card grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-3">
+    <label class="block">
+      <span class="mb-1 block text-sm font-semibold text-slate-700">วันที่ใช้รถ</span>
+      <input id="usage_date" type="date" class="usage-input">
+    </label>
+
+    <label class="block">
+      <span class="mb-1 block text-sm font-semibold text-slate-700">เวลาออก</span>
+      <input id="start_time" type="time" class="usage-input">
+    </label>
+
+    <label class="block hidden">
+      <span class="mb-1 block text-sm font-semibold text-slate-700">เวลากลับ</span>
+      <input id="end_time" type="time" class="usage-input">
+    </label>
+
+    <label class="block lg:col-span-2">
+      <span class="mb-1 block text-sm font-semibold text-slate-700">รถที่ใช้</span>
+      <select id="vehicle_id" class="usage-input">
+        <option value="">กำลังโหลดข้อมูลรถ...</option>
+      </select>
+    </label>
+
+    <label class="block">
+      <span class="mb-1 block text-sm font-semibold text-slate-700">พนักงานขับรถ</span>
+      <select id="driver_id" class="usage-input">
+        <option value="">กำลังโหลดข้อมูลคนขับ...</option>
+      </select>
+    </label>
+
+    <label class="block">
+      <span class="mb-1 block text-sm font-semibold text-slate-700">ประเภทภารกิจ</span>
+      <select id="mission_type" class="usage-input" onchange="toggleUsageNoteRequired()">
+        <option value="">เลือกประเภทภารกิจ</option>
+      </select>
+    </label>
+
+    <label class="block lg:col-span-2">
+      <span class="mb-1 block text-sm font-semibold text-slate-700">สถานที่ไป</span>
+      <select id="destination" class="usage-input">
+        <option value="">กำลังโหลดข้อมูลสถานที่ไป...</option>
+      </select>
+    </label>
+
+    <label class="block">
+      <span class="mb-1 block text-sm font-semibold text-slate-700">ผู้ขอใช้รถ</span>
+      <input id="requester_name" type="text" class="usage-input">
+    </label>
+
+    <label class="block">
+      <span class="mb-1 block text-sm font-semibold text-slate-700">หน่วยงานผู้ขอใช้รถ</span>
+      <select id="requester_department" class="usage-input">
+        <option value="">กำลังโหลดข้อมูลหน่วยงาน...</option>
+      </select>
+    </label>
+
+    <label class="block">
+      <span class="mb-1 block text-sm font-semibold text-slate-700">เลขไมล์ก่อนออก</span>
+      <input id="start_mileage" type="number" min="0" step="1" class="usage-input" oninput="updateTotalKm()">
+    </label>
+
+    <label class="block hidden">
+      <span class="mb-1 block text-sm font-semibold text-slate-700">เลขไมล์หลังกลับ</span>
+      <input id="end_mileage" type="number" min="0" step="1" class="usage-input" oninput="updateTotalKm()">
+    </label>
+
+    <label class="block hidden">
+      <span class="mb-1 block text-sm font-semibold text-slate-700">ระยะทางรวม</span>
+      <input id="total_km" type="text" class="usage-input bg-slate-100" readonly value="0">
+    </label>
+
+    <label class="block">
+      <span class="mb-1 block text-sm font-semibold text-slate-700">จำนวนผู้โดยสาร</span>
+      <input id="passenger_count" type="number" min="0" step="1" class="usage-input" value="0">
+    </label>
+
+    <label class="block sm:col-span-2 lg:col-span-3">
+      <span id="noteLabel" class="mb-1 block text-sm font-semibold text-slate-700">หมายเหตุ</span>
+      <textarea id="note" rows="3" class="usage-input min-h-24"></textarea>
+    </label>
+
+    <div class="flex justify-end gap-3 border-t border-slate-100 pt-4 sm:col-span-2 lg:col-span-3">
+      <button type="button" onclick="clearUsageForm()" class="rounded-xl border border-slate-200 px-5 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">ล้างฟอร์ม</button>
+      <button type="submit" class="rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700">บันทึกเริ่มใช้งาน</button>
+    </div>
+  </form>
+</section>
+
+<style>
+  .usage-input {
+    width: 100%;
+    border-radius: 0.75rem;
+    border: 1px solid rgb(226 232 240);
+    background: rgb(248 250 252);
+    padding: 0.7rem 0.9rem;
+    outline: none;
+  }
+
+  .usage-input:focus {
+    border-color: rgb(16 185 129);
+    background: white;
+    box-shadow: 0 0 0 4px rgb(209 250 229);
+  }
+</style>
+
+<script>
+  let usageVehicles = [];
+  let usageDrivers = [];
+  let usageDepartments = [];
+  let usageDestinations = [];
+  let usageInitialized = false;
+
+  document.addEventListener('sphAuthReady', initUsageForm);
+  document.addEventListener('DOMContentLoaded', function () {
+    setTimeout(initUsageForm, 300);
+    setTimeout(initUsageForm, 1000);
+  });
+
+  function initUsageForm() {
+    if (usageInitialized || window.CURRENT_PAGE !== 'usage-form') {
+      return;
+    }
+
+    const token = getUsageToken();
+
+    if (!token) {
+      showUsageError('Session หมดอายุ กรุณาเข้าสู่ระบบใหม่');
+      return;
+    }
+
+    usageInitialized = true;
+    document.getElementById('usageForm').addEventListener('submit', submitUsageForm);
+    setTodayDefault();
+    loadUsageOptions();
+  }
+
+  function loadUsageOptions() {
+    const token = getUsageToken();
+    showLoading(true);
+
+    google.script.run
+      .withSuccessHandler(function (response) {
+        showLoading(false);
+        if (!response || !response.success) {
+          showUsageError(response ? response.message : 'ไม่สามารถโหลดตัวเลือกแบบฟอร์มได้');
+          return;
+        }
+
+        usageVehicles = response.data && response.data.vehicles ? response.data.vehicles : [];
+        usageDrivers = response.data && response.data.drivers ? response.data.drivers : [];
+        usageDepartments = response.data && response.data.departments ? response.data.departments : [];
+        usageDestinations = response.data && response.data.destinations ? response.data.destinations : [];
+        renderMissionTypes(response.data && response.data.missionTypes ? response.data.missionTypes : null);
+        renderVehicleOptions();
+        renderDriverOptions();
+        renderDepartmentOptions();
+        renderDestinationOptions();
+      })
+      .withFailureHandler(function (error) {
+        showLoading(false);
+        showUsageError(error.message || 'ไม่สามารถโหลดตัวเลือกแบบฟอร์มได้');
+      })
+      .getUsageFormOptions(token);
+  }
+
+  function renderVehicleOptions() {
+    const select = document.getElementById('vehicle_id');
+    select.innerHTML = '<option value="">เลือกรถที่ใช้</option>' + usageVehicles.map(function (vehicle) {
+      const label = [vehicle.vehicle_name, vehicle.plate_no ? '(' + vehicle.plate_no + ')' : '', 'ไมล์ ' + Number(vehicle.current_mileage || 0).toLocaleString('th-TH')]
+        .filter(Boolean)
+        .join(' ');
+      return '<option value="' + escapeUsageHtml(vehicle.vehicle_id) + '" data-mileage="' + Number(vehicle.current_mileage || 0) + '">' + escapeUsageHtml(label) + '</option>';
+    }).join('');
+
+    select.addEventListener('change', function () {
+      const selected = select.options[select.selectedIndex];
+      if (selected && selected.dataset.mileage && !document.getElementById('start_mileage').value) {
+        document.getElementById('start_mileage').value = selected.dataset.mileage;
+        updateTotalKm();
+      }
+    });
+  }
+
+  function renderDriverOptions() {
+    const select = document.getElementById('driver_id');
+    select.innerHTML = '<option value="">เลือกพนักงานขับรถ</option>' + usageDrivers.map(function (driver) {
+      return '<option value="' + escapeUsageHtml(driver.driver_id) + '">' + escapeUsageHtml(driver.full_name) + '</option>';
+    }).join('');
+  }
+
+  function renderDepartmentOptions() {
+    const select = document.getElementById('requester_department');
+    select.innerHTML = '<option value="">เลือกหน่วยงานผู้ขอใช้รถ</option>' + usageDepartments.map(function (department) {
+      return '<option value="' + escapeUsageHtml(department.department_name) + '">' + escapeUsageHtml(department.department_name) + '</option>';
+    }).join('');
+  }
+
+  function renderDestinationOptions() {
+    const select = document.getElementById('destination');
+    select.innerHTML = '<option value="">เลือกสถานที่ไป</option>' + usageDestinations.map(function (destination) {
+      return '<option value="' + escapeUsageHtml(destination.destination_name) + '">' + escapeUsageHtml(destination.destination_name) + '</option>';
+    }).join('');
+  }
+
+  function renderMissionTypes(sourceMissionTypes) {
+    const missionTypes = sourceMissionTypes || (window.APP_CONFIG && window.APP_CONFIG.missionTypes ? window.APP_CONFIG.missionTypes : []);
+    document.getElementById('mission_type').innerHTML = '<option value="">เลือกประเภทภารกิจ</option>' + missionTypes.map(function (missionType) {
+      const missionTypeName = missionType.mission_type_name || missionType;
+      return '<option value="' + escapeUsageHtml(missionTypeName) + '">' + escapeUsageHtml(missionTypeName) + '</option>';
+    }).join('');
+  }
+
+  function submitUsageForm(event) {
+    event.preventDefault();
+
+    const payload = collectUsagePayload();
+    const validationMessage = validateUsageClient(payload);
+
+    if (validationMessage) {
+      showUsageWarning(validationMessage);
+      return;
+    }
+
+    showLoading(true);
+    google.script.run
+      .withSuccessHandler(function (response) {
+        showLoading(false);
+
+        if (!response || !response.success) {
+          showUsageError(response ? response.message : 'บันทึกข้อมูลไม่สำเร็จ');
+          return;
+        }
+
+        Swal.fire({
+          icon: 'success',
+          title: 'บันทึกสำเร็จ',
+          text: 'ระบบได้บันทึกเริ่มใช้งานรถเรียบร้อยแล้ว',
+          confirmButtonText: 'ตกลง'
+        });
+        clearUsageForm();
+        loadUsageOptions();
+      })
+      .withFailureHandler(function (error) {
+        showLoading(false);
+        showUsageError(error.message || 'บันทึกข้อมูลไม่สำเร็จ');
+      })
+      .createUsageLog(payload, getUsageToken());
+  }
+
+  function collectUsagePayload() {
+    return {
+      usage_date: document.getElementById('usage_date').value,
+      start_time: document.getElementById('start_time').value,
+      end_time: document.getElementById('end_time').value,
+      vehicle_id: document.getElementById('vehicle_id').value,
+      driver_id: document.getElementById('driver_id').value,
+      mission_type: document.getElementById('mission_type').value,
+      destination: document.getElementById('destination').value.trim(),
+      requester_name: document.getElementById('requester_name').value.trim(),
+      requester_department: document.getElementById('requester_department').value.trim(),
+      start_mileage: document.getElementById('start_mileage').value,
+      end_mileage: document.getElementById('end_mileage').value,
+      passenger_count: document.getElementById('passenger_count').value,
+      note: document.getElementById('note').value.trim()
+    };
+  }
+
+  function validateUsageClient(payload) {
+    if (!payload.usage_date || !payload.start_time || !payload.vehicle_id || !payload.driver_id || !payload.mission_type || !payload.destination || !payload.requester_department) {
+      return 'กรุณากรอกข้อมูลให้ครบถ้วน';
+    }
+
+    if (isNaN(Number(payload.start_mileage))) {
+      return 'เลขไมล์ก่อนออกต้องเป็นตัวเลข';
+    }
+
+    if (payload.mission_type === 'อื่น ๆ' && !payload.note) {
+      return 'กรุณากรอกหมายเหตุเมื่อเลือกประเภทภารกิจอื่น ๆ';
+    }
+
+    return '';
+  }
+
+  function updateTotalKm() {
+    const startMileage = Number(document.getElementById('start_mileage').value || 0);
+    const endMileage = Number(document.getElementById('end_mileage').value || 0);
+    const totalKm = Math.max(0, endMileage - startMileage);
+    document.getElementById('total_km').value = totalKm.toLocaleString('th-TH');
+  }
+
+  function toggleUsageNoteRequired() {
+    const isOther = document.getElementById('mission_type').value === 'อื่น ๆ';
+    document.getElementById('noteLabel').textContent = isOther ? 'หมายเหตุ (บังคับกรอก)' : 'หมายเหตุ';
+  }
+
+  function clearUsageForm() {
+    document.getElementById('usageForm').reset();
+    document.getElementById('passenger_count').value = '0';
+    document.getElementById('total_km').value = '0';
+    setTodayDefault();
+    toggleUsageNoteRequired();
+  }
+
+  function setTodayDefault() {
+    if (!document.getElementById('usage_date').value) {
+      document.getElementById('usage_date').value = new Date().toISOString().slice(0, 10);
+    }
+  }
+
+  function showUsageError(message) {
+    Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: message, confirmButtonText: 'ตกลง' });
+  }
+
+  function showUsageWarning(message) {
+    Swal.fire({ icon: 'warning', title: 'ข้อมูลไม่ครบ', text: message, confirmButtonText: 'ตกลง' });
+  }
+
+  function getUsageToken() {
+    return localStorage.getItem('sph_vehicle_log_token') || '';
+  }
+
+  function escapeUsageHtml(value) {
+    return String(value || '').replace(/[&<>"']/g, function (char) {
+      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' })[char];
+    });
+  }
+</script>

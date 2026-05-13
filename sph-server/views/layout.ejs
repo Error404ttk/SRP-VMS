@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="th">
+  <head>
+    <base target="_top">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= appConfig.appShortName %></title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <%- include('style') %>
+  </head>
+  <body class="bg-slate-50 text-slate-800">
+    <div id="loadingOverlay" class="fixed inset-0 z-50 hidden items-center justify-center bg-white/70 backdrop-blur-sm">
+      <div class="rounded-2xl bg-white px-6 py-5 text-center shadow-xl">
+        <div class="mx-auto mb-3 h-10 w-10 animate-spin rounded-full border-4 border-sky-100 border-t-sky-600"></div>
+        <p class="text-sm font-semibold text-slate-600">กำลังโหลดข้อมูล...</p>
+      </div>
+    </div>
+
+    <div class="min-h-screen lg:flex">
+      <aside id="sidebar" class="fixed inset-y-0 left-0 z-40 w-72 -translate-x-full bg-slate-950 text-white shadow-2xl transition lg:static lg:translate-x-0">
+        <div class="flex h-full flex-col">
+          <div class="border-b border-white/10 px-5 py-5">
+            <div class="flex items-center gap-3">
+              <div class="flex h-11 w-11 items-center justify-center rounded-2xl bg-sky-500 overflow-hidden text-2xl">
+                <% if (typeof appConfig.logoUrl !== 'undefined' && appConfig.logoUrl) { %>
+                  <img src="<%= appConfig.logoUrl %>" alt="Logo" class="h-full w-full object-cover">
+                <% } else { %>
+                  🚑
+                <% } %>
+              </div>
+              <div>
+                <p class="text-base font-bold leading-tight"><%= appConfig.appShortName %></p>
+                <p class="text-xs text-slate-300"><%= appConfig.hospitalName %></p>
+              </div>
+            </div>
+          </div>
+
+          <nav id="sidebarMenu" class="flex-1 space-y-1 overflow-y-auto px-3 py-4"></nav>
+
+          <div class="border-t border-white/10 p-4">
+            <button onclick="handleLogout()" class="flex w-full items-center justify-center gap-2 rounded-xl bg-white/10 px-4 py-3 text-sm font-semibold hover:bg-white/15">
+              <span>ออกจากระบบ</span>
+            </button>
+          </div>
+        </div>
+      </aside>
+
+      <div id="sidebarBackdrop" class="fixed inset-0 z-30 hidden bg-slate-950/40 lg:hidden" onclick="toggleSidebar(false)"></div>
+
+      <div class="flex min-h-screen flex-1 flex-col">
+        <header class="sticky top-0 z-20 border-b border-slate-200 bg-white/90 backdrop-blur">
+          <div class="flex h-16 items-center justify-between gap-3 px-4 sm:px-6">
+            <div class="flex items-center gap-3">
+              <button onclick="toggleSidebar(true)" class="rounded-xl border border-slate-200 p-2 text-slate-700 lg:hidden">☰</button>
+              <div>
+                <h1 class="text-sm font-bold text-slate-950 sm:text-base"><%= appConfig.appName %></h1>
+                <p class="hidden text-xs text-slate-500 sm:block"><%= appConfig.hospitalName %></p>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-3">
+              <div class="hidden text-right sm:block">
+                <p id="topbarFullName" class="text-sm font-semibold text-slate-800">-</p>
+                <p id="topbarRole" class="text-xs text-slate-500">-</p>
+              </div>
+              <button onclick="handleLogout()" class="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800">ออกจากระบบ</button>
+            </div>
+          </div>
+        </header>
+
+        <main class="flex-1 px-4 py-5 sm:px-6 lg:px-8">
+          <%- include(contentPage) %>
+        </main>
+
+        <footer class="border-t border-slate-200 bg-white px-4 py-4 text-center text-xs leading-6 text-slate-500">
+          <div><%= appConfig.footerText %></div>
+          <div>
+            ผู้เข้าใช้งาน: <span id="footerFullName" class="font-medium text-slate-600">-</span> (<span id="footerRole" class="font-medium text-slate-600">-</span>) |
+            เวอร์ชั่น <%= appConfig.appVersion %>/<%= appConfig.buildDate %>
+            <button type="button" onclick="showReleaseNotes()" class="ml-2 font-semibold text-sky-700 hover:text-sky-800">
+              Release Notes ดูรายการอัปเดต
+            </button>
+          </div>
+        </footer>
+      </div>
+    </div>
+
+    <script id="app-config-data" type="application/json"><%- JSON.stringify(appConfig) %></script>
+    <script id="initial-auth-data" type="application/json"><%- typeof initialAuth !== 'undefined' ? JSON.stringify(initialAuth) : 'null' %></script>
+    <script>
+      window.APP_CONFIG = JSON.parse(document.getElementById('app-config-data').textContent);
+      window.CURRENT_PAGE = '<%= currentPage %>';
+      window.INITIAL_AUTH = JSON.parse(document.getElementById('initial-auth-data').textContent);
+    </script>
+    <%- include('release-notes') %>
+    <%- include('script') %>
+  </body>
+</html>
