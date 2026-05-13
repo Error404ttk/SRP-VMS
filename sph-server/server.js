@@ -51,7 +51,8 @@ const loginLimiter = rateLimit({
   max: 20, // Limit each IP to 20 requests per minute
   message: { success: false, message: 'มีการยิงคำร้องขอเข้าสู่ระบบถี่เกินไป กรุณาลองใหม่ในภายหลัง' },
   standardHeaders: true,
-  legacyHeaders: false
+  legacyHeaders: false,
+  validate: { trustProxy: false }
 });
 
 app.use('/login', loginLimiter);
