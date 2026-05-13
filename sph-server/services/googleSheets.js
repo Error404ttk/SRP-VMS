@@ -219,6 +219,7 @@ export async function writeAuditLog(action, module, detail, user) {
       timestamp: formatThaiDateTime(new Date()),
       user_agent: ''
     });
+    invalidateCache(SHEET_NAMES.AUDIT_LOGS);
   } catch (error) {
     console.error('Failed to write audit log:', error);
   }
