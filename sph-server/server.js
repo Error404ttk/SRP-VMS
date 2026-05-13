@@ -25,6 +25,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
+app.set('trust proxy', true);
 const port = process.env.PORT || 9998;
 
 // Apply Helmet for overall HTTP header security

@@ -2,7 +2,7 @@ import express from 'express';
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import { verifyToken, requireAuth, requireAdmin, hashPassword, verifyPassword, getJwtSecret } from '../utils/auth.js';
-import { formatThaiDate, formatThaiDateTime, isValidIsoDate, isValidTimeValue } from '../utils/formatters.js';
+import { formatThaiDate, formatThaiDateTime, isValidIsoDate, isValidTimeValue, parseThaiDateTime } from '../utils/formatters.js';
 import { 
   doc, SHEET_NAMES, CACHE_TTL, sheetCache, sheetCacheTime, masterDataCache, masterDataCacheTime, 
   invalidateCache, getSheetRows, getRowsAsObjects, appendRowObject, findObjectById, 
@@ -324,7 +324,7 @@ router.post('/api/rpc/:methodName', async (req, res) => {
       let logs = rawLogs.map(r => r.toObject());
       
       // Sort newest first
-      logs.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+      logs.sort((a, b) => parseThaiDateTime(b.created_at) - parseThaiDateTime(a.created_at));
 
       if (methodName === 'getUsageListInitialData' || methodName === 'getUsageLogs') {
         const user = requireAuth(req.cookies.auth_token);
@@ -761,7 +761,7 @@ router.post('/api/rpc/:methodName', async (req, res) => {
       requireAdmin(req.cookies.auth_token);
       
       const allRows = await getRowsAsObjects(SHEET_NAMES.AUDIT_LOGS);
-      allRows.sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0));
+      allRows.sort((a, b) => parseThaiDateTime(b.timestamp) - parseThaiDateTime(a.timestamp));
       
       let filtered = allRows;
       if (filters.action) filtered = filtered.filter(row => row.action === filters.action);
@@ -852,7 +852,7 @@ router.post('/api/rpc/:methodName', async (req, res) => {
       const rows = await getRowsAsObjects(SHEET_NAMES.AUDIT_LOGS);
       const filtered = rows
         .filter(r => actions.includes(r.action))
-        .sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0))
+        .sort((a, b) => parseThaiDateTime(b.timestamp) - parseThaiDateTime(a.timestamp))
         .slice(0, 5);
         
       return res.json({ success: true, result: { success: true, data: filtered } });
