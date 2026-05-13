@@ -807,16 +807,14 @@ router.post('/api/rpc/:methodName', async (req, res) => {
       cutoff.setDate(cutoff.getDate() - retentionDays);
       
       let deletedRows = 0;
+      const cutoffTime = cutoff.getTime();
       for (const r of rows) {
-        const dateStr = r.get('timestamp')?.split(' ')[0]; // dd/MM/yyyy
-        if (dateStr) {
-          const parts = dateStr.split('/');
-          if (parts.length === 3) {
-            const rowDate = new Date(Number(parts[2]) - 543, Number(parts[1]) - 1, Number(parts[0]));
-            if (rowDate < cutoff) {
-              await r.delete();
-              deletedRows++;
-            }
+        const timestamp = r.get('timestamp');
+        if (timestamp) {
+          const rowTime = parseThaiDateTime(timestamp);
+          if (rowTime && rowTime < cutoffTime) {
+            await r.delete();
+            deletedRows++;
           }
         }
       }
