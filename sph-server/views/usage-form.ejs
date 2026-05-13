@@ -189,7 +189,10 @@
 
   function renderDriverOptions() {
     const select = document.getElementById('driver_id');
-    select.innerHTML = '<option value="">เลือกพนักงานขับรถ</option>' + usageDrivers.map(function (driver) {
+    const availableDrivers = (usageDrivers || []).filter(function (driver) {
+      return !driver.is_busy;
+    });
+    select.innerHTML = '<option value="">เลือกพนักงานขับรถ</option>' + availableDrivers.map(function (driver) {
       return '<option value="' + escapeUsageHtml(driver.driver_id) + '">' + escapeUsageHtml(driver.full_name) + '</option>';
     }).join('');
   }

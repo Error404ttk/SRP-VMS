@@ -6,7 +6,7 @@ import { formatThaiDate, formatThaiDateTime, isValidIsoDate, isValidTimeValue, p
 import { 
   doc, SHEET_NAMES, CACHE_TTL, sheetCache, sheetCacheTime, masterDataCache, masterDataCacheTime, 
   invalidateCache, getSheetRows, getRowsAsObjects, appendRowObject, findObjectById, 
-  updateObjectById, getMasterData, writeAuditLog 
+  updateObjectById, getMasterData, writeAuditLog, updateVehicleMileageFromUsage
 } from '../services/googleSheets.js';
 import { appConfig, UI_PAGES, providerSettingsStore } from '../utils/config.js';
 
@@ -131,9 +131,10 @@ router.post('/api/rpc/:methodName', async (req, res) => {
       const vehiclesSheet = doc.sheetsByTitle[SHEET_NAMES.VEHICLES];
       const driversSheet = doc.sheetsByTitle[SHEET_NAMES.DRIVERS];
       
-      const [vRows, dRows] = await Promise.all([
+      const [vRows, dRows, lRows] = await Promise.all([
         vehiclesSheet.getRows(),
-        driversSheet.getRows()
+        driversSheet.getRows(),
+        logsSheet.getRows()
       ]);
       
       const vehicleRow = vRows.find(r => r.get('vehicle_id') === payload.vehicle_id);
@@ -143,6 +144,9 @@ router.post('/api/rpc/:methodName', async (req, res) => {
       if (vehicleRow.get('status') === 'repair' || vehicleRow.get('status') === 'inactive') throw new Error('รถคันนี้ไม่พร้อมใช้งาน');
       if (vehicleRow.get('status') === 'in_use') throw new Error('รถคันนี้กำลังถูกใช้งานอยู่');
       if (!driverRow || driverRow.get('status') !== 'active') throw new Error('พนักงานขับรถนี้ไม่อยู่ในสถานะใช้งาน');
+
+      const isDriverBusy = lRows.some(r => r.get('driver_id') === payload.driver_id && String(r.get('status') || '').trim().toLowerCase() === 'in_use');
+      if (isDriverBusy) throw new Error('พนักงานขับรถคนนี้กำลังปฏิบัติหน้าที่อยู่ (ยังไม่กลับมาพร้อมรถ)');
       
       const log_id = crypto.randomUUID();
       const thaiNow = formatThaiDateTime(new Date());
@@ -372,8 +376,104 @@ router.post('/api/rpc/:methodName', async (req, res) => {
       }
 
       if (methodName === 'getDashboardInitialData' || methodName === 'getDashboardData') {
-        const completedLogs = logs.filter(l => l.status === 'completed');
-        const countedLogs = logs.filter(l => l.status !== 'cancelled');
+        const pad2 = (val) => String(val).padStart(2, '0');
+        const resolveDashboardDateRange = (f) => {
+          let startDate = String(f.startDate || '').trim();
+          let endDate = String(f.endDate || '').trim();
+          const month = String(f.month || '').trim();
+          const fiscalYear = String(f.fiscalYear || '').trim();
+
+          if (month) {
+            const parts = month.split('-');
+            if (parts.length === 2) {
+              const year = Number(parts[0]);
+              const monthIndex = Number(parts[1]);
+              startDate = `${year}-${pad2(monthIndex)}-01`;
+              const lastDayDate = new Date(year, monthIndex, 0);
+              endDate = `${lastDayDate.getFullYear()}-${pad2(lastDayDate.getMonth() + 1)}-${pad2(lastDayDate.getDate())}`;
+            }
+          }
+
+          if (fiscalYear) {
+            const buddhistYear = Number(fiscalYear);
+            const gregorianYear = buddhistYear > 2400 ? buddhistYear - 543 : buddhistYear;
+            startDate = `${gregorianYear - 1}-10-01`;
+            endDate = `${gregorianYear}-09-30`;
+          }
+
+          if (!startDate && !endDate) {
+            const now = new Date();
+            const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+            const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+            startDate = `${firstDay.getFullYear()}-${pad2(firstDay.getMonth() + 1)}-01`;
+            endDate = `${lastDay.getFullYear()}-${pad2(lastDay.getMonth() + 1)}-${pad2(lastDay.getDate())}`;
+          }
+
+          return { startDate, endDate };
+        };
+
+        const formatThaiBuddhistDate = (isoDateStr) => {
+          if (!isoDateStr) return '';
+          const parts = isoDateStr.split('-');
+          if (parts.length !== 3) return isoDateStr;
+          const year = Number(parts[0]) + 543;
+          const month = parts[1];
+          const day = parts[2];
+          return `${day}/${month}/${year}`;
+        };
+
+        const getDashboardRangeLabel = (range) => {
+          if (range.startDate && range.endDate) {
+            return `${formatThaiBuddhistDate(range.startDate)} ถึง ${formatThaiBuddhistDate(range.endDate)}`;
+          }
+          if (range.startDate) {
+            return `ตั้งแต่ ${formatThaiBuddhistDate(range.startDate)}`;
+          }
+          if (range.endDate) {
+            return `ถึง ${formatThaiBuddhistDate(range.endDate)}`;
+          }
+          return 'ทั้งหมด';
+        };
+
+        const parseComparableDate = (str) => {
+          if (!str) return null;
+          const cleanStr = String(str).trim();
+          if (/^\d{4}-\d{2}-\d{2}$/.test(cleanStr)) {
+            const parts = cleanStr.split('-');
+            return new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2])).getTime();
+          }
+          const slashParts = cleanStr.split('/');
+          if (slashParts.length === 3) {
+            const day = Number(slashParts[0]);
+            const month = Number(slashParts[1]) - 1;
+            let year = Number(slashParts[2]);
+            if (year > 2400) year -= 543;
+            return new Date(year, month, day).getTime();
+          }
+          const parsed = new Date(cleanStr).getTime();
+          return isNaN(parsed) ? null : parsed;
+        };
+
+        const range = resolveDashboardDateRange(filters);
+        const startTimestamp = parseComparableDate(range.startDate);
+        const endTimestamp = parseComparableDate(range.endDate);
+        const vehicleId = String(filters.vehicleId || '').trim();
+        const driverId = String(filters.driverId || '').trim();
+        const missionType = String(filters.missionType || '').trim();
+
+        const filteredLogs = logs.filter(row => {
+          const rowTimestamp = parseComparableDate(row.usage_date);
+          if (!rowTimestamp) return false;
+          if (startTimestamp && rowTimestamp < startTimestamp) return false;
+          if (endTimestamp && rowTimestamp > endTimestamp) return false;
+          if (vehicleId && row.vehicle_id !== vehicleId) return false;
+          if (driverId && row.driver_id !== driverId) return false;
+          if (missionType && row.mission_type !== missionType) return false;
+          return true;
+        });
+
+        const completedLogs = filteredLogs.filter(l => l.status === 'completed');
+        const countedLogs = filteredLogs.filter(l => l.status !== 'cancelled');
         
         const groupUsage = (rows, nameKey) => {
           const map = {};
@@ -428,13 +528,14 @@ router.post('/api/rpc/:methodName', async (req, res) => {
                   activeVehicles: new Set(countedLogs.map(l => l.vehicle_id)).size,
                   topVehicle: vehicleTripStats.length > 0 ? vehicleTripStats[0].name : 'ไม่มีข้อมูล',
                   topDriver: driverStats.length > 0 ? driverStats[0].name : 'ไม่มีข้อมูล',
-                  rangeLabel: 'ทั้งหมด'
+                  rangeLabel: getDashboardRangeLabel(range)
                 },
                 dailyTrend: toDailyTrend(countedLogs),
                 missionTypeStats: missionStats,
                 missionTypeShare: missionStats,
                 topVehiclesByTrips: vehicleTripStats.slice(0, 5),
                 topVehiclesByKm: vehicleKmStats.slice(0, 5),
+                vehicleKmStats: vehicleKmStats,
                 topDrivers: driverStats.slice(0, 5),
                 topDestinations: toSimpleStats(groupUsage(countedLogs, 'destination')).slice(0, 10),
                 latestLogs: countedLogs.slice(0, 10),

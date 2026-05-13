@@ -10,27 +10,27 @@
   </div>
 
   <div class="page-card grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-4">
-    <select id="dashFilterMode" class="dashboard-input" onchange="updateDashboardFilterMode()">
+    <select id="dashFilterMode" class="dashboard-input" onchange="updateDashboardFilterMode(); highlightQuickFilterButton('');">
       <option value="dateRange">ช่วงวันที่</option>
       <option value="month">เดือน</option>
       <option value="fiscalYear">ปีงบประมาณ</option>
     </select>
-    <input id="dashStartDate" type="date" class="dashboard-input">
-    <input id="dashEndDate" type="date" class="dashboard-input">
-    <input id="dashMonth" type="month" class="dashboard-input">
-    <input id="dashFiscalYear" type="number" class="dashboard-input" placeholder="ปีงบประมาณ เช่น 2569">
-    <select id="dashVehicle" class="dashboard-input"><option value="">รถทั้งหมด</option></select>
-    <select id="dashDriver" class="dashboard-input"><option value="">คนขับทั้งหมด</option></select>
-    <select id="dashMission" class="dashboard-input"><option value="">ภารกิจทั้งหมด</option></select>
+    <input id="dashStartDate" type="date" class="dashboard-input" onchange="highlightQuickFilterButton('');">
+    <input id="dashEndDate" type="date" class="dashboard-input" onchange="highlightQuickFilterButton('');">
+    <input id="dashMonth" type="month" class="dashboard-input" onchange="highlightQuickFilterButton('');">
+    <input id="dashFiscalYear" type="number" class="dashboard-input" placeholder="ปีงบประมาณ เช่น 2569" onchange="highlightQuickFilterButton('');">
+    <select id="dashVehicle" class="dashboard-input" onchange="highlightQuickFilterButton('');"><option value="">รถทั้งหมด</option></select>
+    <select id="dashDriver" class="dashboard-input" onchange="highlightQuickFilterButton('');"><option value="">คนขับทั้งหมด</option></select>
+    <select id="dashMission" class="dashboard-input" onchange="highlightQuickFilterButton('');"><option value="">ภารกิจทั้งหมด</option></select>
     <select id="dashVehicleSort" class="dashboard-input" onchange="renderTopVehicleChart()">
       <option value="trips">TOP รถ: จำนวนครั้ง</option>
       <option value="km">TOP รถ: ระยะทางรวม</option>
     </select>
     <div class="flex flex-wrap gap-2 sm:col-span-2 lg:col-span-4">
-      <button type="button" onclick="applyQuickFilter('today')" class="dashboard-button">วันนี้</button>
-      <button type="button" onclick="applyQuickFilter('thisMonth')" class="dashboard-button">เดือนนี้</button>
-      <button type="button" onclick="applyQuickFilter('lastMonth')" class="dashboard-button">เดือนก่อน</button>
-      <button type="button" onclick="applyQuickFilter('fiscalYear')" class="dashboard-button">ปีงบประมาณนี้</button>
+      <button id="btnFilterToday" type="button" onclick="applyQuickFilter('today')" class="dashboard-button">วันนี้</button>
+      <button id="btnFilterThisMonth" type="button" onclick="applyQuickFilter('thisMonth')" class="dashboard-button">เดือนนี้</button>
+      <button id="btnFilterLastMonth" type="button" onclick="applyQuickFilter('lastMonth')" class="dashboard-button">เดือนก่อน</button>
+      <button id="btnFilterFiscalYear" type="button" onclick="applyQuickFilter('fiscalYear')" class="dashboard-button">ปีงบประมาณนี้</button>
       <button type="button" onclick="loadDashboardData()" class="rounded-xl bg-sky-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-sky-700">ค้นหา</button>
       <button type="button" onclick="clearDashboardFilters()" class="dashboard-button">ล้างตัวกรอง</button>
     </div>
@@ -117,6 +117,20 @@
     font-weight: 700;
     color: rgb(51 65 85);
     background: white;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .dashboard-button:hover {
+    background: rgb(241 245 249);
+    border-color: rgb(203 213 225);
+  }
+
+  .dashboard-button.active {
+    background: rgb(224 242 254) !important;
+    border-color: rgb(14 165 233) !important;
+    color: rgb(3 105 161) !important;
+    box-shadow: 0 0 0 3px rgb(224 242 254);
   }
 
   .dashboard-panel {
@@ -376,23 +390,45 @@
     }).join('');
   }
 
+  function highlightQuickFilterButton(activeId) {
+    const ids = ['btnFilterToday', 'btnFilterThisMonth', 'btnFilterLastMonth', 'btnFilterFiscalYear'];
+    ids.forEach(function (id) {
+      const btn = document.getElementById(id);
+      if (btn) {
+        if (id === activeId) {
+          btn.classList.add('active');
+        } else {
+          btn.classList.remove('active');
+        }
+      }
+    });
+  }
+
   function applyQuickFilter(mode) {
     const today = new Date();
     let start = new Date(today);
     let end = new Date(today);
+    let activeId = '';
+    
+    if (mode === 'today') {
+      activeId = 'btnFilterToday';
+    }
     if (mode === 'thisMonth') {
       start = new Date(today.getFullYear(), today.getMonth(), 1);
       end = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+      activeId = 'btnFilterThisMonth';
     }
     if (mode === 'lastMonth') {
       start = new Date(today.getFullYear(), today.getMonth() - 1, 1);
       end = new Date(today.getFullYear(), today.getMonth(), 0);
+      activeId = 'btnFilterLastMonth';
     }
     if (mode === 'fiscalYear') {
       const year = today.getMonth() >= 9 ? today.getFullYear() + 1 : today.getFullYear();
       start = new Date(year - 1, 9, 1);
       end = new Date(year, 8, 30);
       document.getElementById('dashFiscalYear').value = year + 543;
+      activeId = 'btnFilterFiscalYear';
     }
     document.getElementById('dashFilterMode').value = mode === 'fiscalYear' ? 'fiscalYear' : 'dateRange';
     document.getElementById('dashStartDate').value = toIsoDate(start);
@@ -400,6 +436,7 @@
     if (mode !== 'fiscalYear') document.getElementById('dashFiscalYear').value = '';
     document.getElementById('dashMonth').value = '';
     updateDashboardFilterMode();
+    highlightQuickFilterButton(activeId);
     loadDashboardData();
   }
 
@@ -409,6 +446,7 @@
     });
     setCurrentMonthDashboardFilters();
     updateDashboardFilterMode();
+    highlightQuickFilterButton('');
     loadDashboardData();
   }
 
@@ -419,6 +457,7 @@
     document.getElementById('dashEndDate').value = toIsoDate(new Date(today.getFullYear(), today.getMonth() + 1, 0));
     document.getElementById('dashMonth').value = '';
     document.getElementById('dashFiscalYear').value = '';
+    highlightQuickFilterButton('btnFilterThisMonth');
   }
 
   function updateDashboardFilterMode() {

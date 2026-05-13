@@ -15,7 +15,7 @@ import { formatThaiDate, formatThaiDateTime, isValidIsoDate, isValidTimeValue } 
 import { 
   doc, SHEET_NAMES, CACHE_TTL, sheetCache, sheetCacheTime, masterDataCache, masterDataCacheTime, 
   invalidateCache, getSheetRows, getRowsAsObjects, appendRowObject, findObjectById, 
-  updateObjectById, getMasterData, writeAuditLog 
+  updateObjectById, getMasterData, writeAuditLog, updateVehicleMileageFromUsage
 } from './services/googleSheets.js';
 import { appConfig, UI_PAGES, providerSettingsStore } from './utils/config.js';
 import pagesRouter from './routes/pages.js';
@@ -77,50 +77,6 @@ app.use(express.static('public')); // Serve frontend files
 // Auth functions have been extracted to utils/auth.js
 
 // Database utils extracted to services/googleSheets.js
-
-async function updateVehicleMileageFromUsage(vehicleId, fallbackMileage) {
-  vehicleId = String(vehicleId || '').trim();
-  if (!vehicleId) return null;
-
-  await doc.loadInfo();
-  const vehiclesSheet = doc.sheetsByTitle[SHEET_NAMES.VEHICLES];
-  const vRows = await vehiclesSheet.getRows();
-  const vehicleRow = vRows.find(r => r.get('vehicle_id') === vehicleId);
-  if (!vehicleRow) return null;
-
-  let baselineMileage = Number(vehicleRow.get('current_mileage')) || 0;
-  if (fallbackMileage !== null && fallbackMileage !== undefined && fallbackMileage !== '') {
-    baselineMileage = Math.max(baselineMileage, Number(fallbackMileage) || 0);
-  }
-
-  const logsSheet = doc.sheetsByTitle[SHEET_NAMES.USAGE_LOGS];
-  const lRows = await logsSheet.getRows();
-  
-  let maxMileage = baselineMileage;
-  let hasActive = false;
-
-  for (const r of lRows) {
-    if (r.get('vehicle_id') === vehicleId) {
-      if (r.get('status') === 'completed') {
-        const endMil = Number(r.get('end_mileage')) || 0;
-        if (endMil > maxMileage) {
-          maxMileage = endMil;
-        }
-      } else if (r.get('status') === 'in_use') {
-        hasActive = true;
-      }
-    }
-  }
-
-  const nextStatus = hasActive ? 'in_use' : 'available';
-  vehicleRow.set('current_mileage', maxMileage);
-  vehicleRow.set('status', nextStatus);
-  vehicleRow.set('updated_at', new Date().toISOString());
-  await vehicleRow.save();
-  
-  invalidateCache(SHEET_NAMES.VEHICLES); // Clear cache
-  return vehicleRow.toObject();
-}
 
 // getMasterData extracted to services/googleSheets.js
 

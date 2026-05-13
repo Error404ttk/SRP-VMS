@@ -173,12 +173,13 @@ export async function getMasterData() {
   }
   await doc.loadInfo();
   
-  const [vehicles, drivers, departments, missionTypes, destinations] = await Promise.all([
+  const [vehicles, drivers, departments, missionTypes, destinations, usageLogs] = await Promise.all([
     doc.sheetsByTitle[SHEET_NAMES.VEHICLES].getRows(),
     doc.sheetsByTitle[SHEET_NAMES.DRIVERS].getRows(),
     doc.sheetsByTitle[SHEET_NAMES.DEPARTMENTS].getRows(),
     doc.sheetsByTitle[SHEET_NAMES.MISSION_TYPES].getRows(),
-    doc.sheetsByTitle[SHEET_NAMES.DESTINATIONS].getRows()
+    doc.sheetsByTitle[SHEET_NAMES.DESTINATIONS].getRows(),
+    doc.sheetsByTitle[SHEET_NAMES.USAGE_LOGS].getRows()
   ]);
 
   const serialize = (rows) => rows.map(r => r.toObject());
@@ -186,19 +187,78 @@ export async function getMasterData() {
   const isAvailable = (v) => String(v.status || '').trim().toLowerCase() === 'available';
   
   const objVehicles = serialize(vehicles);
+  const objLogs = serialize(usageLogs);
+
+  // Identify drivers who are currently in an active log with status "in_use"
+  const busyDriverIds = new Set(
+    objLogs
+      .filter(log => String(log.status || '').trim().toLowerCase() === 'in_use')
+      .map(log => String(log.driver_id || '').trim())
+  );
+
+  const mappedDrivers = serialize(drivers).map(d => {
+    return {
+      ...d,
+      is_busy: busyDriverIds.has(String(d.driver_id || '').trim())
+    };
+  });
   
   masterDataCache = {
     vehicles: objVehicles.filter(isAvailable),
-    drivers: serialize(drivers).filter(isActive),
+    drivers: mappedDrivers.filter(isActive),
     departments: serialize(departments).filter(isActive),
     missionTypes: serialize(missionTypes).filter(isActive),
     destinations: serialize(destinations).filter(isActive)
   };
   
-  console.log(`[MasterData] Vehicles: ${vehicles.length} total, ${masterDataCache.vehicles.length} active`);
+  console.log(`[MasterData] Vehicles: ${vehicles.length} total, ${masterDataCache.vehicles.length} active. Busy drivers count: ${busyDriverIds.size}`);
   
   masterDataCacheTime = Date.now();
   return masterDataCache;
+}
+
+export async function updateVehicleMileageFromUsage(vehicleId, fallbackMileage) {
+  vehicleId = String(vehicleId || '').trim();
+  if (!vehicleId) return null;
+
+  await doc.loadInfo();
+  const vehiclesSheet = doc.sheetsByTitle[SHEET_NAMES.VEHICLES];
+  const vRows = await vehiclesSheet.getRows();
+  const vehicleRow = vRows.find(r => r.get('vehicle_id') === vehicleId);
+  if (!vehicleRow) return null;
+
+  let baselineMileage = Number(vehicleRow.get('current_mileage')) || 0;
+  if (fallbackMileage !== null && fallbackMileage !== undefined && fallbackMileage !== '') {
+    baselineMileage = Math.max(baselineMileage, Number(fallbackMileage) || 0);
+  }
+
+  const logsSheet = doc.sheetsByTitle[SHEET_NAMES.USAGE_LOGS];
+  const lRows = await logsSheet.getRows();
+  
+  let maxMileage = baselineMileage;
+  let hasActive = false;
+
+  for (const r of lRows) {
+    if (r.get('vehicle_id') === vehicleId) {
+      if (r.get('status') === 'completed') {
+        const endMil = Number(r.get('end_mileage')) || 0;
+        if (endMil > maxMileage) {
+          maxMileage = endMil;
+        }
+      } else if (r.get('status') === 'in_use') {
+        hasActive = true;
+      }
+    }
+  }
+
+  const nextStatus = hasActive ? 'in_use' : 'available';
+  vehicleRow.set('current_mileage', maxMileage);
+  vehicleRow.set('status', nextStatus);
+  vehicleRow.set('updated_at', new Date().toISOString());
+  await vehicleRow.save();
+  
+  invalidateCache(SHEET_NAMES.VEHICLES); // Clear cache
+  return vehicleRow.toObject();
 }
 
 export async function writeAuditLog(action, module, detail, user) {

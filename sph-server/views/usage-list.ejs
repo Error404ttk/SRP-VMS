@@ -348,7 +348,14 @@
     document.getElementById('edit_end_time').value = toUsageTimeInputValue(row.end_time);
     ensureUsageVehicleOption(row);
     document.getElementById('edit_vehicle_id').value = row.vehicle_id;
-    document.getElementById('edit_driver_id').value = row.driver_id;
+    const editDriverSelect = document.getElementById('edit_driver_id');
+    const availableDrivers = (usageListDrivers || []).filter(function (driver) {
+      return !driver.is_busy || driver.driver_id === row.driver_id;
+    });
+    editDriverSelect.innerHTML = '<option value="">เลือกคนขับ</option>' + availableDrivers.map(function (driver) {
+      return '<option value="' + escapeUsageListHtml(driver.driver_id) + '">' + escapeUsageListHtml(driver.full_name) + '</option>';
+    }).join('');
+    editDriverSelect.value = row.driver_id;
     document.getElementById('edit_mission_type').value = row.mission_type;
     ensureUsageDestinationOption(row.destination);
     document.getElementById('edit_destination').value = row.destination;
@@ -551,7 +558,6 @@
       return '<option value="' + escapeUsageListHtml(driver.driver_id) + '">' + escapeUsageListHtml(driver.full_name) + '</option>';
     }).join('');
     document.getElementById('usageFilterDriver').innerHTML = '<option value="">คนขับทั้งหมด</option>' + options;
-    document.getElementById('edit_driver_id').innerHTML = '<option value="">เลือกคนขับ</option>' + options;
   }
 
   function renderUsageDepartmentOptions() {
